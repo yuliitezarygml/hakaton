@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"D:/project/openrouter-web\" && go build ./... 2>&1)",
+      "Bash(cd /d/project/openrouter-web && npx create-next-app@latest frontend --js --tailwind --app --no-eslint --no-src-dir --import-alias \"@/*\" --yes 2>&1)",
+      "Bash(cat:*)",
+      "Bash(node:*)",
+      "Bash(cd:*)"
+    ]
+  }
+}

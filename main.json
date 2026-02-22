@@ -1,0 +1,48 @@
+{
+    "summary": "Articolul prezintă o înșelătorie deepfake care utilizează imaginea lui Igor Dodon pentru a promova o platformă investițională. Scopul articolului este de a avertiza cititorii despre această înșelătorie și de a promova campania împotriva informației false și tendențioase.",
+    "source_url": "https://stopfals.md/ro/article/o-noua-inselatorie-deepfake-de-aceasta-data-cu-folosirea-imaginii-lui-igor-dodon-181420",
+    "fact_check": {
+        "verifiable_facts": [
+            "Existența unor anunțuri sponsorizate pe Facebook și Instagram care conțin imaginea lui Igor Dodon",
+            "Faptul că aceste anunțuri promovează o platformă investițională"
+        ],
+        "opinions_as_facts": [
+            "Afirmarea că înșelătoria deepfake este o escrocherie, fără a oferi dovezi suplimentare"
+        ],
+        "missing_evidence": [
+            "Lipsa unor detalii despre modul în care a fost creată înșelătoria deepfake"
+        ]
+    },
+    "manipulations": [
+        "Utilizarea unui ton alarmist pentru a atrage atenția cititorilor"
+    ],
+    "logical_issues": [
+        "Lipsa unei analize detaliate a modului în care a fost creată înșelătoria deepfake"
+    ],
+    "credibility_score": 8,
+    "reasoning": "Articolul prezintă o înșelătorie deepfake care utilizează imaginea lui Igor Dodon pentru a promova o platformă investițională. Deși articolul oferă unele informații despre înșelătorie, lipsește o analiză detaliată a modului în care a fost creată și a impactului său. Articolul se bazează pe surse din internet, dar nu oferă dovezi suplimentare pentru a susține afirmațiile sale. Prin urmare, i-am acordat un scor de credibilitate de 8, deoarece articolul prezintă o problemă reală, dar lipsește o analiză mai profundă și dovezi suplimentare.",
+    "sources": [
+        {
+            "title": "Stopfals.md",
+            "url": "https://stopfals.md/",
+            "description": "Informații despre înșelătoria deepfake"
+        },
+        {
+            "title": "Campania STOP FALS!",
+            "url": "https://stopfals.md/ro/",
+            "description": "Informații despre campania împotriva informației false și tendențioase"
+        }
+    ],
+    "verification": {
+        "is_fake": false,
+        "fake_reasons": [
+            "Lipsa unor detalii despre modul în care a fost creată înșelătoria deepfake"
+        ],
+        "real_information": "Înșelătoria deepfake care utilizează imaginea lui Igor Dodon este o problemă reală, dar lipsește o analiză mai profundă și dovezi suplimentare.",
+        "verified_sources": [
+            "Stopfals.md",
+            "Campania STOP FALS!"
+        ]
+    },
+    "raw_response": "```json\n{\n  \"credibility_score\": 8,\n  \"fact_check\": {\n    \"missing_evidence\": [\n      \"Lipsa unor detalii despre modul în care a fost creată înșelătoria deepfake\"\n    ],\n    \"opinions_as_facts\": [\n      \"Afirmarea că înșelătoria deepfake este o escrocherie, fără a oferi dovezi suplimentare\"\n    ],\n    \"verifiable_facts\": [\n      \"Existența unor anunțuri sponsorizate pe Facebook și Instagram care conțin imaginea lui Igor Dodon\",\n      \"Faptul că aceste anunțuri promovează o platformă investițională\"\n    ]\n  },\n  \"logical_issues\": [\n    \"Lipsa unei analize detaliate a modului în care a fost creată înșelătoria deepfake\"\n  ],\n  \"manipulations\": [\n    \"Utilizarea unui ton alarmist pentru a atrage atenția cititorilor\"\n  ],\n  \"reasoning\": \"Articolul prezintă o înșelătorie deepfake care utilizează imaginea lui Igor Dodon pentru a promova o platformă investițională. Deși articolul oferă unele informații despre înșelătorie, lipsește o analiză detaliată a modului în care a fost creată și a impactului său. Articolul se bazează pe surse din internet, dar nu oferă dovezi suplimentare pentru a susține afirmațiile sale. Prin urmare, i-am acordat un scor de credibilitate de 8, deoarece articolul prezintă o problemă reală, dar lipsește o analiză mai profundă și dovezi suplimentare.\",\n  \"sources\": [\n    {\n      \"description\": \"Informații despre înșelătoria deepfake\",\n      \"title\": \"Stopfals.md\",\n      \"url\": \"https://stopfals.md/\"\n    },\n    {\n      \"description\": \"Informații despre campania împotriva informației false și tendențioase\",\n      \"title\": \"Campania STOP FALS!\",\n      \"url\": \"https://stopfals.md/ro/\"\n    }\n  ],\n  \"summary\": \"Articolul prezintă o înșelătorie deepfake care utilizează imaginea lui Igor Dodon pentru a promova o platformă investițională. Scopul articolului este de a avertiza cititorii despre această înșelătorie și de a promova campania împotriva informației false și tendențioase.\",\n  \"verification\": {\n    \"fake_reasons\": [\n      \"Lipsa unor detalii despre modul în care a fost creată înșelătoria deepfake\"\n    ],\n    \"is_fake\": \"false\",\n    \"real_information\": \"Înșelătoria deepfake care utilizează imaginea lui Igor Dodon este o problemă reală, dar lipsește o analiză mai profundă și dovezi suplimentare.\",\n    \"verified_sources\": [\n      \"Stopfals.md\",\n      \"Campania STOP FALS!\"\n    ]\n  }\n}\n```"
+}

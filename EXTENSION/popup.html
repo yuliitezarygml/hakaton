@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Text Analyzer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+
+    <header>
+      <span class="title">🔍 Text Analyzer</span>
+      <span id="status-dot" class="status-dot" title="Статус бэкенда"></span>
+    </header>
+
+    <!-- State: idle -->
+    <div id="view-idle" class="view hidden">
+      <button id="btn-analyze-url" class="btn-primary">
+        Анализировать текущую страницу
+      </button>
+      <p class="hint">
+        Или выделите текст на любой странице<br>
+        → правый клик → Проанализировать
+      </p>
+    </div>
+
+    <!-- State: scanning (content script running on page) -->
+    <div id="view-scanning" class="view hidden">
+      <div class="scan-header">
+        <div class="scan-pulse-dot"></div>
+        <span class="scan-title">Сканирование страницы</span>
+        <span id="scan-chars" class="scan-chars">0 симв.</span>
+      </div>
+      <div class="scan-progress-bar"><div id="scan-bar-fill" class="scan-bar-fill"></div></div>
+      <div id="scan-feed"></div>
+      <button id="btn-cancel-scan" class="btn-secondary">✕ Отменить</button>
+    </div>
+
+    <!-- State: analyzing (SSE streaming) -->
+    <div id="view-analyzing" class="view hidden">
+      <div id="event-log"></div>
+      <button id="btn-stop" class="btn-secondary">✕ Остановить</button>
+    </div>
+
+    <!-- State: result -->
+    <div id="view-result" class="view hidden">
+      <div id="result-header">
+        <span id="result-score"></span>
+        <span id="result-verdict"></span>
+      </div>
+      <p id="result-summary"></p>
+      <div id="result-sections"></div>
+      <button id="btn-new" class="btn-secondary">↺ Новый анализ</button>
+    </div>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

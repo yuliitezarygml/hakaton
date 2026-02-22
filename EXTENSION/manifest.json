@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Text Analyzer",
+  "version": "1.0.0",
+  "description": "Анализ текстов и статей на дезинформацию, манипуляции и логические ошибки",
+  "permissions": ["contextMenus", "storage", "activeTab", "windows", "scripting"],
+  "host_permissions": ["http://localhost:8080/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Text Analyzer"
+  }
+}
