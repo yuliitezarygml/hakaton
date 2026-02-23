@@ -42,49 +42,43 @@ func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*m
 			progress[0](msg)
 		}
 	}
-	report("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	report(fmt.Sprintf("📝 ШАГ 1/4 — Получен текст (%d символов)", len(text)))
+	report(fmt.Sprintf("📄 Читаю текст... %d символов", len(text)))
 
 	var searchContext string
 	if s.serper != nil && s.serper.APIKey != "" {
-		report("🌐 ШАГ 2/4 — Поиск фактов в Google (RU + EN + RO)...")
+		report("🔍 Ищу факты по теме в интернете...")
 		searchResults, err := s.serper.SearchForFactCheck(text)
 		if err != nil {
-			report(fmt.Sprintf("⚠ Поиск недоступен: %v", err))
+			report("⚠ Поиск в сети недоступен, продолжаю без него")
 		} else if searchResults != "" {
 			searchContext = "\n\n--- ИНФОРМАЦИЯ ИЗ ИНТЕРНЕТА ДЛЯ ПРОВЕРКИ ФАКТОВ ---\n" + searchResults
-			report("✓ Контекст из интернета получен")
+			report("✓ Нашёл дополнительный контекст из сети")
 		} else {
-			report("⚠ Поиск не дал результатов")
+			report("⚠ По теме ничего не нашлось, продолжаю без контекста")
 		}
-	} else {
-		report("⚠ ШАГ 2/4 — Serper не настроен, пропускаю поиск")
 	}
 
-	report("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	report(fmt.Sprintf("🤖 ШАГ 3/4 — Отправляю в AI... (%d символов)", len(text)+len(searchContext)))
-	report("⏳ Ожидайте ответа модели...")
+	report(fmt.Sprintf("🧠 Анализирую текст на манипуляции и дезинформацию... (%d симв.)", len(text)+len(searchContext)))
+	report("⏳ Проверяю источники, логику и факты...")
 
 	fullText := text + searchContext
 	rawResponse, err := s.client.Analyze(fullText)
 	if err != nil {
-		report(fmt.Sprintf("❌ AI вернул ошибку: %v", err))
+		report(fmt.Sprintf("❌ Ошибка при анализе: %v", err))
 		return nil, err
 	}
 
-	report(fmt.Sprintf("✓ AI ответил (%d символов)", len(rawResponse)))
-	report("🔍 Извлекаю JSON из ответа...")
+	report("📊 Обрабатываю результат...")
 
 	jsonStr := extractJSON(rawResponse)
 	jsonStr = fixJSONTypes(jsonStr)
 
 	var response models.AnalysisResponse
 	if err := json.Unmarshal([]byte(jsonStr), &response); err != nil {
-		report("⚠ Ошибка парсинга, пробую очистить...")
 		cleanJSON := strings.ReplaceAll(jsonStr, "\n", " ")
 		cleanJSON = strings.ReplaceAll(cleanJSON, "\t", " ")
 		if err := json.Unmarshal([]byte(cleanJSON), &response); err != nil {
-			report("❌ Парсинг не удался — возвращаю сырой ответ")
+			report("❌ Не удалось обработать результат")
 			return &models.AnalysisResponse{
 				Summary:     "Не удалось распарсить ответ",
 				RawResponse: rawResponse,
@@ -94,39 +88,32 @@ func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*m
 
 	response.RawResponse = rawResponse
 
-	report("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	report("📊 РЕЗУЛЬТАТ АНАЛИЗА:")
-	report(fmt.Sprintf("   Достоверность : %d/10", response.CredibilityScore))
-	report(fmt.Sprintf("   Манипуляций   : %d", len(response.Manipulations)))
-	report(fmt.Sprintf("   Лог. ошибок   : %d", len(response.LogicalIssues)))
-	report(fmt.Sprintf("   Источников    : %d", len(response.Sources)))
+	report(fmt.Sprintf("📊 Достоверность: %d/10 · манипуляций: %d · логических ошибок: %d",
+		response.CredibilityScore, len(response.Manipulations), len(response.LogicalIssues)))
 	if response.CredibilityScore <= 3 {
-		report("   Вердикт       : 🔴 ВЕРОЯТНАЯ ДЕЗИНФОРМАЦИЯ")
+		report("🔴 Высокая вероятность дезинформации")
 	} else if response.CredibilityScore <= 6 {
-		report("   Вердикт       : 🟡 СОМНИТЕЛЬНЫЙ КОНТЕНТ")
+		report("🟡 Контент вызывает сомнения")
 	} else {
-		report("   Вердикт       : 🟢 ДОСТОВЕРНЫЙ КОНТЕНТ")
+		report("🟢 Контент выглядит достоверно")
 	}
-	report("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	if response.CredibilityScore <= 7 && s.serper != nil && s.serper.APIKey != "" {
-		report("🔎 ШАГ 4/4 — Запускаю глубокую верификацию...")
+		report("🔎 Проверяю по независимым источникам...")
 		verification, err := s.verifyAndFindTruth(text, &response)
 		if err != nil {
-			report(fmt.Sprintf("⚠ Верификация не удалась: %v", err))
+			report("⚠ Не удалось провести перекрёстную проверку")
 		} else {
 			response.Verification = *verification
 			if verification.IsFake {
-				report(fmt.Sprintf("🚨 ИТОГ: СТАТЬЯ ФАЛЬШИВАЯ (%d причин)", len(verification.FakeReasons)))
+				report(fmt.Sprintf("🚨 Обнаружены признаки дезинформации (%d)", len(verification.FakeReasons)))
 			} else {
-				report("✓ Верификация завершена")
+				report("✓ Перекрёстная проверка завершена")
 			}
 		}
-	} else {
-		report(fmt.Sprintf("✅ ШАГ 4/4 — Верификация не нужна (оценка %d/10)", response.CredibilityScore))
 	}
 
-	report("✅ Анализ полностью завершён!")
+	report("✅ Готово!")
 	return &response, nil
 }
 
@@ -138,11 +125,7 @@ func (s *AnalyzerService) AnalyzeURL(url string, progress ...func(string)) (*mod
 		}
 	}
 
-	report("════════════════════════════════════════")
-	report("🌐 АНАЛИЗ СТАТЬИ ПО URL")
-	report("   " + url)
-	report("════════════════════════════════════════")
-	report("📥 Шаг 1/2 — Загружаю страницу...")
+	report("🌐 Загружаю страницу...")
 
 	content, err := s.fetcher.FetchURL(url)
 	if err != nil {
@@ -150,8 +133,8 @@ func (s *AnalyzerService) AnalyzeURL(url string, progress ...func(string)) (*mod
 		return nil, err
 	}
 
-	report(fmt.Sprintf("✓ Страница загружена (%d символов)", len(content)))
-	report("🔬 Шаг 2/2 — Передаю на анализ...")
+	report(fmt.Sprintf("✓ Страница загружена, читаю контент... (%d символов)", len(content)))
+	report("🔬 Начинаю анализ содержимого...")
 
 	var progressFn func(string)
 	if len(progress) > 0 {
@@ -163,7 +146,6 @@ func (s *AnalyzerService) AnalyzeURL(url string, progress ...func(string)) (*mod
 	}
 
 	response.SourceURL = url
-	report("🏁 Анализ URL завершён!")
 	return response, nil
 }
 

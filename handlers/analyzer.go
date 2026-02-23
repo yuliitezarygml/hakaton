@@ -99,16 +99,15 @@ func (h *AnalyzerHandler) AnalyzeStream(w http.ResponseWriter, r *http.Request) 
 		sendEvent("progress", msg)
 	}
 
-	sendEvent("start", "🚀 Начинаю анализ...")
+	sendEvent("start", "🚀 Начинаю проверку...")
 
 	var result *models.AnalysisResponse
 	var err error
 
 	if req.URL != "" {
-		sendProgress(fmt.Sprintf("🌐 Анализирую URL: %s", req.URL))
 		result, err = h.service.AnalyzeURL(req.URL, sendProgress)
 	} else {
-		sendProgress(fmt.Sprintf("📝 Анализирую текст (%d символов)", len(req.Text)))
+		sendProgress(fmt.Sprintf("📄 Текст получен (%d символов), начинаю проверку...", len(req.Text)))
 		result, err = h.service.AnalyzeText(req.Text, sendProgress)
 	}
 
@@ -117,10 +116,9 @@ func (h *AnalyzerHandler) AnalyzeStream(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Отправляем финальный результат
 	resultJSON, _ := json.Marshal(result)
 	sendEvent("result", string(resultJSON))
-	sendEvent("done", "✅ Анализ завершён!")
+	sendEvent("done", "✅ Проверка завершена!")
 }
 
 func (h *AnalyzerHandler) Health(w http.ResponseWriter, r *http.Request) {

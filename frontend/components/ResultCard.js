@@ -7,10 +7,19 @@ function scoreColor(n) {
   return '#22c55e'
 }
 
-function verdict(n) {
-  if (n <= 3) return '🔴 ВЕРОЯТНАЯ ДЕЗИНФОРМАЦИЯ'
-  if (n <= 6) return '🟡 СОМНИТЕЛЬНЫЙ КОНТЕНТ'
-  return '🟢 ДОСТОВЕРНЫЙ КОНТЕНТ'
+function verdictFallback(n) {
+  if (n <= 3) return '🔴 DEZINFORMARE'
+  if (n <= 6) return '🟡 CONȚINUT DISCUTABIL'
+  return '🟢 CREDIBIL'
+}
+
+function verdictColor(v) {
+  if (!v) return null
+  const u = v.toUpperCase()
+  if (u.includes('FALS') || u.includes('NEFONDAT') || u.includes('SUSPECT')) return '#ef4444'
+  if (u.includes('PARȚIAL') || u.includes('PARTIAL') || u.includes('DISCUTABIL')) return '#eab308'
+  if (u.includes('ADEV')) return '#22c55e'
+  return null
 }
 
 function Section({ title, color, children }) {
@@ -68,9 +77,16 @@ export default function ResultCard({ result }) {
         <span style={{ fontSize: '38px', fontWeight: 'bold', color, fontFamily: 'monospace', lineHeight: 1 }}>
           {result.credibility_score}/10
         </span>
-        <span style={{ fontSize: '15px', fontWeight: '600', color }}>
-          {verdict(result.credibility_score)}
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ fontSize: '15px', fontWeight: '700', color: verdictColor(result.final_verdict) || color }}>
+            {result.final_verdict || verdictFallback(result.credibility_score)}
+          </span>
+          {result.verdict_explanation && (
+            <span style={{ fontSize: '12px', color: '#888', maxWidth: '400px' }}>
+              {result.verdict_explanation}
+            </span>
+          )}
+        </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {hasRealInfo && (
             <button
@@ -87,7 +103,7 @@ export default function ResultCard({ result }) {
                 transition: 'all 0.15s',
               }}
             >
-              {realInfoOpen ? '✕ Скрыть' : '🔍 Настоящая информация'}
+              {realInfoOpen ? '✕ Ascunde' : '🔍 Informație reală'}
             </button>
           )}
           {result.source_url && (
@@ -112,7 +128,7 @@ export default function ResultCard({ result }) {
               onMouseEnter={e => e.currentTarget.style.background = '#162e20'}
               onMouseLeave={e => e.currentTarget.style.background = '#0f2a1a'}
             >
-              ↗ Оригинал статьи
+              ↗ Articol original
             </a>
           )}
           <button onClick={copyJSON} style={{
@@ -126,7 +142,7 @@ export default function ResultCard({ result }) {
             fontFamily: 'var(--font-mono)',
             transition: 'color 0.2s',
           }}>
-            {copied ? '✓ Скопировано' : '⎘ Копировать JSON'}
+            {copied ? '✓ Copiat' : '⎘ Copiază JSON'}
           </button>
         </div>
       </div>
@@ -150,7 +166,7 @@ export default function ResultCard({ result }) {
             fontSize: '14px',
           }}>
             <span>🔍</span>
-            <span>Проверенная информация по теме</span>
+            <span>Informație verificată pe această temă</span>
           </div>
 
           {result.verification?.real_information && (
@@ -169,7 +185,7 @@ export default function ResultCard({ result }) {
           {result.verification?.verified_sources?.length > 0 && (
             <div>
               <div style={{ color: '#38bdf8', fontSize: '12px', marginBottom: '10px', opacity: 0.7 }}>
-                Источники с достоверной информацией:
+                Surse cu informații verificate:
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {result.verification.verified_sources.map((src, i) => {
@@ -222,9 +238,18 @@ export default function ResultCard({ result }) {
         </p>
       )}
 
+      {/* Score breakdown */}
+      {result.score_breakdown && (
+        <Section title="🧮 Calculul scorului" color="#818cf8">
+          <p style={{ color: '#c7d2fe', fontSize: '13px', lineHeight: '1.6', fontFamily: 'var(--font-mono)' }}>
+            {result.score_breakdown}
+          </p>
+        </Section>
+      )}
+
       {/* Reasoning */}
       {result.reasoning && (
-        <Section title="💬 Обоснование" color="#a0a0a0">
+        <Section title="💬 Justificare" color="#a0a0a0">
           <p style={{ color: '#aaa', fontSize: '13px', lineHeight: '1.6' }}>{result.reasoning}</p>
         </Section>
       )}
@@ -238,13 +263,13 @@ export default function ResultCard({ result }) {
           padding: '14px 16px',
           marginBottom: '18px',
         }}>
-          <div style={{ color: '#ef4444', fontWeight: '600', marginBottom: '10px' }}>🚨 Почему фейк</div>
+          <div style={{ color: '#ef4444', fontWeight: '600', marginBottom: '10px' }}>🚨 De ce este fals</div>
           <ul style={{ paddingLeft: '20px', color: '#fca5a5', fontSize: '13px' }}>
             {result.verification.fake_reasons?.map((r, i) => <li key={i} style={{ marginBottom: '4px' }}>{r}</li>)}
           </ul>
           {result.verification.real_information && (
             <p style={{ marginTop: '10px', color: '#fca5a5', fontSize: '13px', lineHeight: '1.5' }}>
-              <strong>Реальная информация:</strong> {result.verification.real_information}
+              <strong>Informație reală:</strong> {result.verification.real_information}
             </p>
           )}
         </div>
@@ -252,7 +277,7 @@ export default function ResultCard({ result }) {
 
       {/* Manipulations */}
       {result.manipulations?.length > 0 && (
-        <Section title="⚠ Манипуляции" color="#fbbf24">
+        <Section title="⚠ Manipulări" color="#fbbf24">
           <ul style={{ paddingLeft: '20px', color: '#e5e5e5', fontSize: '13px' }}>
             {result.manipulations.map((m, i) => <li key={i} style={{ marginBottom: '4px' }}>{m}</li>)}
           </ul>
@@ -261,7 +286,7 @@ export default function ResultCard({ result }) {
 
       {/* Logical issues */}
       {result.logical_issues?.length > 0 && (
-        <Section title="⚡ Логические ошибки" color="#f97316">
+        <Section title="⚡ Erori logice" color="#f97316">
           <ul style={{ paddingLeft: '20px', color: '#e5e5e5', fontSize: '13px' }}>
             {result.logical_issues.map((l, i) => <li key={i} style={{ marginBottom: '4px' }}>{l}</li>)}
           </ul>
@@ -270,10 +295,10 @@ export default function ResultCard({ result }) {
 
       {/* Fact check */}
       {result.fact_check && (
-        <Section title="🔍 Фактчек" color="#818cf8">
+        <Section title="🔍 Verificare fapte" color="#818cf8">
           {result.fact_check.opinions_as_facts?.length > 0 && (
             <div style={{ marginBottom: '10px' }}>
-              <div style={{ color: '#888', fontSize: '12px', marginBottom: '4px' }}>Мнения, поданные как факты:</div>
+              <div style={{ color: '#888', fontSize: '12px', marginBottom: '4px' }}>Opinii prezentate ca fapte:</div>
               <ul style={{ paddingLeft: '20px', color: '#c7d2fe', fontSize: '13px' }}>
                 {result.fact_check.opinions_as_facts.map((o, i) => <li key={i} style={{ marginBottom: '3px' }}>{o}</li>)}
               </ul>
@@ -281,7 +306,7 @@ export default function ResultCard({ result }) {
           )}
           {result.fact_check.missing_evidence?.length > 0 && (
             <div>
-              <div style={{ color: '#888', fontSize: '12px', marginBottom: '4px' }}>Утверждения без доказательств:</div>
+              <div style={{ color: '#888', fontSize: '12px', marginBottom: '4px' }}>Afirmații fără dovezi:</div>
               <ul style={{ paddingLeft: '20px', color: '#c7d2fe', fontSize: '13px' }}>
                 {result.fact_check.missing_evidence.map((e, i) => <li key={i} style={{ marginBottom: '3px' }}>{e}</li>)}
               </ul>
@@ -292,7 +317,7 @@ export default function ResultCard({ result }) {
 
       {/* Sources */}
       {result.sources?.length > 0 && (
-        <Section title="📚 Источники для проверки" color="#60a5fa">
+        <Section title="📚 Surse pentru verificare" color="#60a5fa">
           <ul style={{ paddingLeft: '20px', listStyle: 'none' }}>
             {result.sources.map((s, i) => <SourceLink key={i} src={s} />)}
           </ul>

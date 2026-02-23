@@ -148,19 +148,11 @@ async function startScan(tab) {
 
   if (!scanResult || scanCancelled) return;
 
-  if (!scanResult.text || scanResult.charCount < 50) {
-    // Fallback to URL
-    addEvent('progress', '⚠ Мало текста на странице — анализирую по URL...');
-    startAnalysis({ url: tab.url });
-    return;
-  }
-
-  // Show brief transition
-  addScanChunk('✓', `Найдено ${scanResult.total} блоков · ${scanResult.charCount.toLocaleString('ru')} символов`);
+  // Show brief transition then send URL to backend for fresh fetch
+  addScanChunk('✓', `Сканирование завершено · запускаю анализ по URL...`);
   await new Promise(r => setTimeout(r, 400));
 
-  // Start SSE analysis with extracted text
-  startAnalysis({ text: scanResult.text });
+  startAnalysis({ url: tab.url });
 }
 
 // ── SSE streaming ──────────────────────────────────────────────

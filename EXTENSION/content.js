@@ -28,7 +28,6 @@
       transparent 100%);
     box-shadow: 0 0 16px 4px rgba(56,189,248,0.7), 0 0 40px 8px rgba(56,189,248,0.2);
     top: 0;
-    transition: top 0.15s linear;
   `;
   overlay.appendChild(scanLine);
 
@@ -46,6 +45,7 @@
     pointer-events: none;
     display: flex; align-items: center; gap: 8px;
     box-shadow: 0 0 20px rgba(56,189,248,0.2);
+    transition: opacity 0.4s;
   `;
 
   const dot = document.createElement('div');
@@ -97,89 +97,109 @@
     return SKIP_CLASS_RX.test(cls);
   }
 
-  // ── Collect elements ────────────────────────────────────────────
-  const allEls = Array.from(
-    document.querySelectorAll('h1, h2, h3, h4, p, blockquote, figcaption')
+  // ── Collect elements & sort by page position ────────────────────
+  const pageH = Math.max(document.documentElement.scrollHeight, 1);
+
+  const elData = Array.from(
+    document.querySelectorAll('h1,h2,h3,h4,p,blockquote,figcaption')
   ).filter(el => {
     const text = el.innerText?.trim() ?? '';
-    if (text.length < 25) return false;
-    if (isJunk(el)) return false;
-    return true;
-  });
+    return text.length >= 25 && !isJunk(el);
+  }).map(el => {
+    const rect = el.getBoundingClientRect();
+    const top = (rect.top + window.scrollY) / pageH; // 0..1 fraction
+    return {
+      el,
+      top,
+      tag: el.tagName.startsWith('H') ? el.tagName : '§',
+      text: (el.innerText?.trim() ?? '').slice(0, 140),
+      len:  (el.innerText?.trim() ?? '').length,
+    };
+  }).sort((a, b) => a.top - b.top);
 
-  // ── Scan loop ───────────────────────────────────────────────────
-  const pageH = Math.max(document.documentElement.scrollHeight, 1);
+  // ── Smooth sweep animation ──────────────────────────────────────
+  const SCAN_DURATION = 3000; // ms for full top→bottom sweep
+  const SCAN_LINE_VH  = 0.35; // scan line stays at 35% of viewport height
+  const savedScrollY  = window.scrollY;
+  const startTime     = performance.now();
+  let nextIdx   = 0;
   let charCount = 0;
-  let fullText = '';
+  let fullText  = '';
+  let rafId;
 
-  function delay(ms) {
-    return new Promise(r => setTimeout(r, ms));
-  }
+  // Scan line always at fixed viewport position; page scrolls beneath it
+  scanLine.style.top = (SCAN_LINE_VH * 100) + '%';
 
-  async function run() {
-    for (let i = 0; i < allEls.length; i++) {
-      const el = allEls[i];
-      const rect = el.getBoundingClientRect();
-      const elTop = rect.top + window.scrollY;
+  function tick(now) {
+    const t = Math.min((now - startTime) / SCAN_DURATION, 1); // 0..1
 
-      // Move scan line
-      const pct = Math.min((elTop / pageH) * 100, 99);
-      scanLine.style.top = pct + '%';
+    // Logical scan position on the full page (pixels)
+    const scanPageY = t * pageH;
 
-      // Highlight element
-      el.classList.add('__ta_scanned');
+    // Scroll so that scan line aligns with current scan position
+    const targetScroll = Math.max(0, scanPageY - window.innerHeight * SCAN_LINE_VH);
+    window.scrollTo({ top: targetScroll, behavior: 'instant' });
 
-      const text = el.innerText?.trim() ?? '';
-      const tag = el.tagName.startsWith('H') ? el.tagName : '§';
-      fullText += text + '\n\n';
-      charCount += text.length;
+    badgeText.textContent = `🔍 ${Math.round(t * 100)}%`;
 
-      badgeText.textContent = `🔍 ${charCount.toLocaleString('ru')} симв.`;
+    // Highlight elements whose page-Y is now behind the scan line
+    while (nextIdx < elData.length && elData[nextIdx].top * pageH <= scanPageY) {
+      const d = elData[nextIdx];
+      d.el.classList.add('__ta_scanned');
+      fullText  += (d.el.innerText?.trim() ?? '') + '\n\n';
+      charCount += d.len;
 
-      // Send chunk to popup
+      const idx = nextIdx;
+      setTimeout(() => {
+        d.el.classList.remove('__ta_scanned');
+        d.el.classList.add('__ta_done');
+      }, 300);
+
       try {
         chrome.runtime.sendMessage({
-          type: 'scan_chunk',
-          tag,
-          text: text.slice(0, 140),
+          type:      'scan_chunk',
+          tag:       d.tag,
+          text:      d.text,
           charCount,
-          index: i,
-          total: allEls.length,
+          index:     idx,
+          total:     elData.length,
         });
       } catch (_) { /* popup may have closed */ }
 
-      await delay(90);
-
-      // Transition to "done" style
-      el.classList.remove('__ta_scanned');
-      el.classList.add('__ta_done');
+      nextIdx++;
     }
 
-    // Scan line to bottom
-    scanLine.style.top = '100%';
-    badgeText.textContent = `✓ ${charCount.toLocaleString('ru')} симв. найдено`;
+    if (t < 1) {
+      rafId = requestAnimationFrame(tick);
+    } else {
+      // ── Sweep complete ──────────────────────────────────────────
+      scanLine.style.top = '100%';
+      badgeText.textContent = `✓ ${charCount.toLocaleString('ru')} симв. найдено`;
 
-    // Send done
-    try {
-      chrome.runtime.sendMessage({
-        type: 'scan_done',
-        text: fullText.trim().slice(0, 30000),
-        charCount,
-        total: allEls.length,
-      });
-    } catch (_) { /* ignore */ }
+      try {
+        chrome.runtime.sendMessage({
+          type:      'scan_done',
+          text:      fullText.trim().slice(0, 30000),
+          charCount,
+          total:     elData.length,
+        });
+      } catch (_) { /* ignore */ }
 
-    // Clean up after short delay
-    await delay(900);
-    overlay.style.opacity = '0';
-    badge.style.opacity = '0';
-    await delay(400);
-    overlay.remove();
-    badge.remove();
-    style.remove();
-    allEls.forEach(el => el.classList.remove('__ta_scanned', '__ta_done'));
-    window.__taRunning = false;
+      // Restore scroll position, fade out overlay & badge
+      window.scrollTo({ top: savedScrollY, behavior: 'smooth' });
+      setTimeout(() => {
+        overlay.style.opacity = '0';
+        badge.style.opacity   = '0';
+        setTimeout(() => {
+          overlay.remove();
+          badge.remove();
+          style.remove();
+          elData.forEach(d => d.el.classList.remove('__ta_scanned', '__ta_done'));
+          window.__taRunning = false;
+        }, 400);
+      }, 800);
+    }
   }
 
-  run();
+  requestAnimationFrame(tick);
 })();

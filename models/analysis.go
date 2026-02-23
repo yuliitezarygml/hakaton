@@ -6,16 +6,19 @@ type AnalysisRequest struct {
 }
 
 type AnalysisResponse struct {
-	Summary          string        `json:"summary"`
-	SourceURL        string        `json:"source_url,omitempty"`
-	FactCheck        FactCheck     `json:"fact_check"`
-	Manipulations    []string      `json:"manipulations"`
-	LogicalIssues    []string      `json:"logical_issues"`
-	CredibilityScore int           `json:"credibility_score"`
-	Reasoning        string        `json:"reasoning"`
-	Sources          []Source      `json:"sources,omitempty"`
-	Verification     Verification  `json:"verification,omitempty"`
-	RawResponse      string        `json:"raw_response,omitempty"`
+	Summary            string        `json:"summary"`
+	SourceURL          string        `json:"source_url,omitempty"`
+	FactCheck          FactCheck     `json:"fact_check"`
+	Manipulations      []string      `json:"manipulations"`
+	LogicalIssues      []string      `json:"logical_issues"`
+	CredibilityScore   int           `json:"credibility_score"`
+	ScoreBreakdown     string        `json:"score_breakdown,omitempty"`
+	FinalVerdict       string        `json:"final_verdict,omitempty"`
+	VerdictExplanation string        `json:"verdict_explanation,omitempty"`
+	Reasoning          string        `json:"reasoning"`
+	Sources            []Source      `json:"sources,omitempty"`
+	Verification       Verification  `json:"verification,omitempty"`
+	RawResponse        string        `json:"raw_response,omitempty"`
 }
 
 type Verification struct {
