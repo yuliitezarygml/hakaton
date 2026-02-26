@@ -59,21 +59,9 @@ func (f *ContentFetcher) FetchURL(url string) (string, error) {
 		log.Printf("[FETCHER] 📝 Первые 100 символов: %s...", truncate(content, 100))
 	}
 
-	if len(content) < 400 {
-		log.Printf("[FETCHER] ⚠ Контент очень короткий (%d символов). Возможно это SPA, каталог или страница без статического текста.", len(content))
-		return "", fmt.Errorf("недостаточно текстового контента на странице (%d символов). Попробуйте ссылку на конкретную статью, а не на раздел/категорию сайта", len(content))
-	}
-
-	// Проверяем качество: если большинство строк очень короткие — вероятно список/навигация
-	lines := strings.Split(content, "\n")
-	shortLines := 0
-	for _, l := range lines {
-		if len(strings.TrimSpace(l)) < 60 {
-			shortLines++
-		}
-	}
-	if len(lines) > 5 && shortLines*100/len(lines) > 75 {
-		log.Printf("[FETCHER] ⚠ Страница похожа на каталог/список (%d%% коротких строк).", shortLines*100/len(lines))
+	if len(content) < 200 {
+		log.Printf("[FETCHER] ⚠ Контент очень короткий (%d символов). Возможно это SPA или страница без статического текста.", len(content))
+		return "", fmt.Errorf("недостаточно текстового контента на странице (%d символов). Попробуйте другую ссылку", len(content))
 	}
 
 	return content, nil
@@ -97,16 +85,18 @@ func truncate(s string, maxLen int) string {
 
 // Теги, чьё поддерево полностью пропускается
 var skipTags = map[string]bool{
-	"script": true, "style": true, "noscript": true,
-	"nav": true, "header": true, "footer": true, "aside": true,
-	"iframe": true, "form": true, "button": true,
-	"select": true, "option": true, "textarea": true,
-	"svg": true, "canvas": true, "audio": true, "video": true,
-	"figure": false, // figure оставляем — там может быть подпись
+	"script":   true,
+	"style":    true,
+	"noscript": true,
+	"iframe":   true,
+	"svg":      true,
+	"canvas":   true,
+	"audio":    true,
+	"video":    true,
 }
 
 // Классы/id указывающие на мусор (реклама, навигация, виджеты)
-var junkAttrRe = regexp.MustCompile(`(?i)\b(ad|ads|advert|advertisement|banner|sidebar|widget|cookie|gdpr|subscribe|newsletter|social|sharing|comment|promo|popup|modal|overlay|related|recommend|sponsored|navigation|breadcrumb|menu)\b`)
+var junkAttrRe = regexp.MustCompile(`(?i)\b(ad-|ads-|advert|advertisement|banner|cookie-banner|gdpr|subscribe-|newsletter|promo|popup|modal|overlay|sponsored)\b`)
 
 // Блочные теги, после которых нужен перенос строки
 var blockTags = map[string]bool{
@@ -124,15 +114,17 @@ var paraTags = map[string]bool{
 }
 
 func isJunkNode(n *html.Node) bool {
+	// Проверяем только явные рекламные блоки
 	for _, attr := range n.Attr {
 		switch attr.Key {
 		case "class", "id":
-			if junkAttrRe.MatchString(attr.Val) {
-				return true
-			}
-		case "role":
-			switch strings.ToLower(attr.Val) {
-			case "navigation", "banner", "complementary", "search", "dialog":
+			val := strings.ToLower(attr.Val)
+			// Только явная реклама и попапы
+			if strings.Contains(val, "advertisement") || 
+			   strings.Contains(val, "ad-banner") ||
+			   strings.Contains(val, "popup") ||
+			   strings.Contains(val, "modal") ||
+			   strings.Contains(val, "cookie-banner") {
 				return true
 			}
 		case "aria-hidden":
@@ -153,6 +145,76 @@ func (f *ContentFetcher) extractText(htmlStr string) string {
 		return ""
 	}
 
+	// Сначала пытаемся найти основной контент по семантическим тегам
+	mainContent := f.findMainContent(doc)
+	if mainContent != nil {
+		log.Printf("[FETCHER] ✓ Найден основной контент в семантических тегах")
+		return f.extractFromNode(mainContent)
+	}
+
+	// Если не нашли - парсим всю страницу
+	log.Printf("[FETCHER] ⚠ Основной контент не найден, парсю всю страницу")
+	return f.extractFromNode(doc)
+}
+
+// findMainContent ищет основной контент статьи по семантическим тегам
+func (f *ContentFetcher) findMainContent(n *html.Node) *html.Node {
+	// Приоритет 1: <article>
+	if article := f.findTag(n, "article"); article != nil {
+		return article
+	}
+	
+	// Приоритет 2: <main>
+	if main := f.findTag(n, "main"); main != nil {
+		return main
+	}
+	
+	// Приоритет 3: элемент с классом/id содержащим "content", "article", "post", "entry"
+	if content := f.findByClass(n, []string{"content", "article", "post", "entry", "main-content", "post-content"}); content != nil {
+		return content
+	}
+	
+	return nil
+}
+
+// findTag ищет первый элемент с указанным тегом
+func (f *ContentFetcher) findTag(n *html.Node, tag string) *html.Node {
+	if n.Type == html.ElementNode && strings.ToLower(n.Data) == tag {
+		return n
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if result := f.findTag(c, tag); result != nil {
+			return result
+		}
+	}
+	return nil
+}
+
+// findByClass ищет элемент с классом/id содержащим одно из ключевых слов
+func (f *ContentFetcher) findByClass(n *html.Node, keywords []string) *html.Node {
+	if n.Type == html.ElementNode {
+		for _, attr := range n.Attr {
+			if attr.Key == "class" || attr.Key == "id" {
+				val := strings.ToLower(attr.Val)
+				for _, keyword := range keywords {
+					if strings.Contains(val, keyword) {
+						return n
+					}
+				}
+			}
+		}
+	}
+	
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if result := f.findByClass(c, keywords); result != nil {
+			return result
+		}
+	}
+	return nil
+}
+
+// extractFromNode извлекает текст из узла
+func (f *ContentFetcher) extractFromNode(root *html.Node) string {
 	var sb strings.Builder
 
 	var walk func(*html.Node)
@@ -211,7 +273,7 @@ func (f *ContentFetcher) extractText(htmlStr string) string {
 		}
 	}
 
-	walk(doc)
+	walk(root)
 
 	// ── Нормализация ──────────────────────────────────────────────
 	spaceRe   := regexp.MustCompile(`[ \t]+`)
@@ -230,10 +292,10 @@ func (f *ContentFetcher) extractText(htmlStr string) string {
 	text := strings.TrimSpace(newlineRe.ReplaceAllString(strings.Join(cleanLines, "\n"), "\n\n"))
 
 	// Ограничиваем длину
-	if len([]rune(text)) > 15000 {
+	if len([]rune(text)) > 20000 {
 		runes := []rune(text)
-		log.Printf("[FETCHER] ⚠ Текст слишком длинный (%d симв.), обрезаю до 15000", len(runes))
-		text = string(runes[:15000]) + "\n\n[...текст обрезан для анализа...]"
+		log.Printf("[FETCHER] ⚠ Текст слишком длинный (%d симв.), обрезаю до 20000", len(runes))
+		text = string(runes[:20000]) + "\n\n[...текст обрезан для анализа...]"
 	}
 
 	return text
