@@ -20,6 +20,17 @@ func NewAnalyzerHandler(service *services.AnalyzerService) *AnalyzerHandler {
 
 // Analyze — обычный endpoint, возвращает финальный JSON
 func (h *AnalyzerHandler) Analyze(w http.ResponseWriter, r *http.Request) {
+	// CORS заголовки
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	
+	// Обработка preflight запроса
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	
 	startTime := time.Now()
 	log.Printf("\n========================================")
 	log.Printf("[HANDLER] 📥 Получен запрос: %s %s", r.Method, r.RemoteAddr)
@@ -124,4 +135,50 @@ func (h *AnalyzerHandler) AnalyzeStream(w http.ResponseWriter, r *http.Request) 
 func (h *AnalyzerHandler) Health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// Chat — endpoint для общения с AI на основе результатов анализа
+func (h *AnalyzerHandler) Chat(w http.ResponseWriter, r *http.Request) {
+	// CORS заголовки
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	
+	// Обработка preflight запроса
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	log.Printf("[HANDLER] 💬 Получен запрос к чату: %s", r.RemoteAddr)
+	
+	var req models.ChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
+		return
+	}
+	
+	if req.Message == "" {
+		http.Error(w, "Сообщение не может быть пустым", http.StatusBadRequest)
+		return
+	}
+	
+	log.Printf("[HANDLER] 📝 Вопрос: %s", req.Message)
+	
+	result, err := h.service.Chat(req.Message, req.AnalysisContext)
+	if err != nil {
+		log.Printf("[HANDLER] ❌ Ошибка: %v", err)
+		http.Error(w, "Ошибка обработки запроса: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	log.Printf("[HANDLER] ✅ Ответ отправлен")
+	
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(result)
 }

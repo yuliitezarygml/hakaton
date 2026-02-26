@@ -75,6 +75,7 @@ func main() {
 
 	http.HandleFunc("/api/analyze", analyzerHandler.Analyze)
 	http.HandleFunc("/api/analyze/stream", analyzerHandler.AnalyzeStream)
+	http.HandleFunc("/api/chat", analyzerHandler.Chat)
 	http.HandleFunc("/api/health", analyzerHandler.Health)
 
 	addr := ":" + cfg.Port

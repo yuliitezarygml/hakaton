@@ -371,3 +371,103 @@ func fixJSONTypes(jsonStr string) string {
 	
 	return jsonStr
 }
+
+// Chat — метод для общения с AI на основе контекста анализа
+func (s *AnalyzerService) Chat(message string, analysisContext *models.AnalysisResponse) (*models.ChatResponse, error) {
+	log.Printf("[CHAT] 💬 Получен вопрос пользователя: %s", message)
+	
+	// Формируем системный промпт на русском языке
+	systemPrompt := `Ты — продвинутый ИИ-помощник по анализу новостей и борьбе с дезинформацией.
+
+Твоя задача:
+- Отвечать на вопросы пользователя о проанализированной новости
+- Использовать результаты нейро-анализа для обоснования своих ответов
+- Помогать пользователю понять, почему новость может быть недостоверной
+- Объяснять найденные манипуляции и логические ошибки простым языком
+
+Правила:
+- Отвечай ТОЛЬКО на русском языке
+- Будь кратким и конкретным
+- Используй факты из анализа
+- Если не знаешь ответа — честно признайся
+- Не придумывай информацию, которой нет в контексте`
+
+	// Формируем контекст из результатов анализа
+	var contextText string
+	if analysisContext != nil {
+		contextText = fmt.Sprintf(`
+РЕЗУЛЬТАТЫ АНАЛИЗА НОВОСТИ:
+
+Краткое резюме: %s
+
+Оценка достоверности: %d/10
+
+Найденные манипуляции (%d):
+%s
+
+Логические ошибки (%d):
+%s
+
+Проверка фактов:
+- Проверяемые факты: %d
+- Мнения выданные за факты: %d
+- Утверждения без доказательств: %d
+
+Обоснование оценки: %s
+`,
+			analysisContext.Summary,
+			analysisContext.CredibilityScore,
+			len(analysisContext.Manipulations),
+			formatList(analysisContext.Manipulations),
+			len(analysisContext.LogicalIssues),
+			formatList(analysisContext.LogicalIssues),
+			len(analysisContext.FactCheck.VerifiableFacts),
+			len(analysisContext.FactCheck.OpinionsAsFacts),
+			len(analysisContext.FactCheck.MissingEvidence),
+			analysisContext.Reasoning,
+		)
+		
+		if analysisContext.Verification.IsFake {
+			contextText += fmt.Sprintf("\n\nПРИЗНАКИ ДЕЗИНФОРМАЦИИ:\n%s", formatList(analysisContext.Verification.FakeReasons))
+			if analysisContext.Verification.RealInformation != "" {
+				contextText += fmt.Sprintf("\n\nНАСТОЯЩАЯ ИНФОРМАЦИЯ:\n%s", analysisContext.Verification.RealInformation)
+			}
+		}
+	} else {
+		contextText = "Контекст анализа не предоставлен. Отвечай на общие вопросы о проверке новостей и борьбе с дезинформацией."
+	}
+	
+	// Формируем полный промпт
+	fullPrompt := fmt.Sprintf("%s\n\n%s\n\nВопрос пользователя: %s", systemPrompt, contextText, message)
+	
+	log.Printf("[CHAT] 🤖 Отправляю запрос к AI...")
+	
+	// Вызываем AI клиент
+	response, tokenUsage, err := s.client.Analyze(fullPrompt)
+	if err != nil {
+		log.Printf("[CHAT] ❌ Ошибка: %v", err)
+		return nil, fmt.Errorf("ошибка получения ответа от AI: %w", err)
+	}
+	
+	log.Printf("[CHAT] ✅ Ответ получен (%d символов)", len(response))
+	if tokenUsage != nil {
+		log.Printf("[CHAT] 📊 Использовано токенов: %d", tokenUsage.TotalTokens)
+	}
+	
+	return &models.ChatResponse{
+		Response: response,
+		Usage:    tokenUsage,
+	}, nil
+}
+
+// formatList — форматирует список строк для вывода
+func formatList(items []string) string {
+	if len(items) == 0 {
+		return "нет"
+	}
+	result := ""
+	for i, item := range items {
+		result += fmt.Sprintf("%d. %s\n", i+1, item)
+	}
+	return result
+}

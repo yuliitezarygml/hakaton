@@ -46,3 +46,13 @@ type FactCheck struct {
 	OpinionsAsFacts   []string `json:"opinions_as_facts"`
 	MissingEvidence   []string `json:"missing_evidence"`
 }
+
+type ChatRequest struct {
+	Message         string           `json:"message"`
+	AnalysisContext *AnalysisResponse `json:"analysis_context,omitempty"`
+}
+
+type ChatResponse struct {
+	Response string      `json:"response"`
+	Usage    *TokenUsage `json:"usage,omitempty"`
+}
