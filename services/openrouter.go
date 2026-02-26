@@ -16,7 +16,6 @@ type OpenRouterClient struct {
 	Model         string
 	ModelBackup   string
 	PromptConfig  *PromptConfig
-	lmStudio      *LMStudioClient // Для локального режима
 }
 
 type OpenRouterRequest struct {
@@ -47,11 +46,6 @@ func NewOpenRouterClient(apiKey, model, modelBackup string, promptConfig *Prompt
 }
 
 func (c *OpenRouterClient) Analyze(text string) (string, error) {
-	// Если используется LM Studio, перенаправляем на него
-	if c.lmStudio != nil {
-		return c.lmStudio.Analyze(text)
-	}
-
 	hasBackup := c.ModelBackup != "" && c.ModelBackup != c.Model
 
 	// Пробуем основную модель
@@ -383,16 +377,4 @@ func mergeSources(data1, data2 map[string]interface{}) []interface{} {
 	}
 	
 	return result
-}
-
-
-// NewOpenRouterClientWithLMStudio создает адаптер для LM Studio
-func NewOpenRouterClientWithLMStudio(lmStudio *LMStudioClient) *OpenRouterClient {
-	return &OpenRouterClient{
-		APIKey:       "",
-		Model:        lmStudio.Model,
-		ModelBackup:  "",
-		PromptConfig: lmStudio.PromptConfig,
-		lmStudio:     lmStudio,
-	}
 }

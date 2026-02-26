@@ -1,4 +1,4 @@
-const API_BASE   = 'http://localhost:8080';
+const API_BASE   = 'https://apich.sinkdev.dev';
 const API_STREAM = API_BASE + '/api/analyze/stream';
 const API_HEALTH = API_BASE + '/api/health';
 
@@ -50,7 +50,7 @@ async function checkHealth() {
     const resp = await fetch(API_HEALTH, { signal: AbortSignal.timeout(3000) });
     if (resp.ok) {
       statusDot.className = 'status-dot online';
-      statusDot.title = 'Бэкенд онлайн (localhost:8080)';
+      statusDot.title = 'Бэкенд онлайн (apich.sinkdev.dev)';
       return true;
     }
   } catch { /* offline */ }
@@ -58,7 +58,7 @@ async function checkHealth() {
   statusDot.className = 'status-dot offline';
   statusDot.title = 'Бэкенд недоступен';
   btnAnalyzeUrl.disabled = true;
-  btnAnalyzeUrl.textContent = '⚠ Запустите go run main.go';
+  btnAnalyzeUrl.textContent = '⚠ Бэкенд недоступен';
   return false;
 }
 

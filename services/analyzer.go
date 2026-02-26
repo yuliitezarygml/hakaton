@@ -9,7 +9,7 @@ import (
 	"text-analyzer/models"
 )
 
-// AIClient — интерфейс для любого AI провайдера (OpenRouter, Groq, LMStudio)
+// AIClient — интерфейс для любого AI провайдера (OpenRouter, Groq)
 type AIClient interface {
 	Analyze(text string) (string, error)
 }

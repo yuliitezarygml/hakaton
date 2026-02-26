@@ -23,9 +23,6 @@ func main() {
 	if cfg.UseGroq {
 		log.Printf("  - Режим: Groq ⚡")
 		log.Printf("  - Модель: %s", cfg.GroqModel)
-	} else if cfg.UseLMStudio {
-		log.Printf("  - Режим: LM Studio 🖥")
-		log.Printf("  - URL: %s, Модель: %s", cfg.LMStudioURL, cfg.LMStudioModel)
 	} else {
 		log.Printf("  - Режим: OpenRouter ☁")
 		log.Printf("  - Модель 1: %s", cfg.OpenRouterModel)
@@ -63,13 +60,6 @@ func main() {
 		analyzerService = services.NewAnalyzerService(groqClient, contentFetcher, serperClient, promptConfig)
 		log.Println("✓ Groq режим активирован")
 
-	case cfg.UseLMStudio:
-		log.Println("🖥 Инициализация LM Studio клиента...")
-		lmStudioClient := services.NewLMStudioClient(cfg.LMStudioURL, cfg.LMStudioModel, promptConfig)
-		openRouterClient := services.NewOpenRouterClientWithLMStudio(lmStudioClient)
-		analyzerService = services.NewAnalyzerService(openRouterClient, contentFetcher, serperClient, promptConfig)
-		log.Println("✓ LM Studio режим активирован")
-
 	default:
 		if cfg.OpenRouterAPIKey == "" {
 			log.Fatal("❌ OPENROUTER_API_KEY не установлен")
@@ -92,8 +82,6 @@ func main() {
 	fmt.Printf("🎯 Сервер запущен на http://localhost%s\n", addr)
 	if cfg.UseGroq {
 		fmt.Printf("⚡ Режим: Groq | Модель: %s\n", cfg.GroqModel)
-	} else if cfg.UseLMStudio {
-		fmt.Printf("🖥 Режим: LM Studio | Модель: %s\n", cfg.LMStudioModel)
 	} else {
 		fmt.Printf("☁ Режим: OpenRouter | Модель: %s\n", cfg.OpenRouterModel)
 	}
