@@ -11,7 +11,7 @@ import (
 
 // AIClient — интерфейс для любого AI провайдера (OpenRouter, Groq)
 type AIClient interface {
-	Analyze(text string) (string, error)
+	Analyze(text string) (string, *models.TokenUsage, error)
 }
 
 type AnalyzerService struct {
@@ -62,13 +62,17 @@ func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*m
 	report("⏳ Проверяю источники, логику и факты...")
 
 	fullText := text + searchContext
-	rawResponse, err := s.client.Analyze(fullText)
+	rawResponse, tokenUsage, err := s.client.Analyze(fullText)
 	if err != nil {
 		report(fmt.Sprintf("❌ Ошибка при анализе: %v", err))
 		return nil, err
 	}
 
 	report("📊 Обрабатываю результат...")
+	if tokenUsage != nil {
+		report(fmt.Sprintf("📊 Использовано токенов: %d (запрос: %d, ответ: %d)", 
+			tokenUsage.TotalTokens, tokenUsage.PromptTokens, tokenUsage.CompletionTokens))
+	}
 
 	jsonStr := extractJSON(rawResponse)
 	jsonStr = fixJSONTypes(jsonStr)
@@ -87,6 +91,7 @@ func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*m
 	}
 
 	response.RawResponse = rawResponse
+	response.Usage = tokenUsage
 
 	report(fmt.Sprintf("📊 Достоверность: %d/10 · манипуляций: %d · логических ошибок: %d",
 		response.CredibilityScore, len(response.Manipulations), len(response.LogicalIssues)))

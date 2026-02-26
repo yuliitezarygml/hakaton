@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"text-analyzer/models"
 	"time"
 )
 
@@ -24,7 +25,7 @@ func NewGroqClient(apiKey, model string, promptConfig *PromptConfig) *GroqClient
 	}
 }
 
-func (c *GroqClient) Analyze(text string) (string, error) {
+func (c *GroqClient) Analyze(text string) (string, *models.TokenUsage, error) {
 	log.Printf("[GROQ] 🤖 Модель: %s", c.Model)
 
 	systemPrompt := c.PromptConfig.BuildSystemPrompt()
@@ -41,7 +42,7 @@ func (c *GroqClient) Analyze(text string) (string, error) {
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("ошибка маршалинга: %w", err)
+		return "", nil, fmt.Errorf("ошибка маршалинга: %w", err)
 	}
 
 	httpClient := &http.Client{Timeout: 60 * time.Second}
@@ -57,7 +58,7 @@ func (c *GroqClient) Analyze(text string) (string, error) {
 
 		req, err := http.NewRequest("POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewBuffer(jsonData))
 		if err != nil {
-			return "", fmt.Errorf("ошибка создания запроса: %w", err)
+			return "", nil, fmt.Errorf("ошибка создания запроса: %w", err)
 		}
 		req.Header.Set("Authorization", "Bearer "+c.APIKey)
 		req.Header.Set("Content-Type", "application/json")
@@ -104,9 +105,20 @@ func (c *GroqClient) Analyze(text string) (string, error) {
 		}
 
 		responseText := groqResp.Choices[0].Message.Content
+		
+		// Создаем структуру TokenUsage из ответа
+		tokenUsage := &models.TokenUsage{
+			PromptTokens:     groqResp.Usage.PromptTokens,
+			CompletionTokens: groqResp.Usage.CompletionTokens,
+			TotalTokens:      groqResp.Usage.TotalTokens,
+		}
+		
 		log.Printf("[GROQ] ✅ Успешно! Длина ответа: %d символов", len(responseText))
-		return responseText, nil
+		log.Printf("[GROQ] 📊 Токены: %d всего (запрос: %d, ответ: %d)", 
+			tokenUsage.TotalTokens, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
+		
+		return responseText, tokenUsage, nil
 	}
 
-	return "", fmt.Errorf("все %d попытки неудачны: %w", maxRetries, lastErr)
+	return "", nil, fmt.Errorf("все %d попытки неудачны: %w", maxRetries, lastErr)
 }

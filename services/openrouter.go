@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"text-analyzer/models"
 	"time"
 )
 
@@ -34,6 +35,11 @@ type OpenRouterResponse struct {
 	Choices []struct {
 		Message Message `json:"message"`
 	} `json:"choices"`
+	Usage struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
 }
 
 func NewOpenRouterClient(apiKey, model, modelBackup string, promptConfig *PromptConfig) *OpenRouterClient {
@@ -45,15 +51,15 @@ func NewOpenRouterClient(apiKey, model, modelBackup string, promptConfig *Prompt
 	}
 }
 
-func (c *OpenRouterClient) Analyze(text string) (string, error) {
+func (c *OpenRouterClient) Analyze(text string) (string, *models.TokenUsage, error) {
 	hasBackup := c.ModelBackup != "" && c.ModelBackup != c.Model
 
 	// Пробуем основную модель
 	log.Printf("[OPENROUTER] 🤖 Основная модель: %s", c.Model)
-	response, err := c.analyzeWithModel(text, c.Model)
+	response, usage, err := c.analyzeWithModel(text, c.Model)
 	if err == nil {
 		log.Printf("[OPENROUTER] ✅ Основная модель ответила успешно")
-		return response, nil
+		return response, usage, nil
 	}
 
 	log.Printf("[OPENROUTER] ⚠ Основная модель недоступна: %v", err)
@@ -61,19 +67,19 @@ func (c *OpenRouterClient) Analyze(text string) (string, error) {
 	// Если есть резервная — пробуем её
 	if hasBackup {
 		log.Printf("[OPENROUTER] 🔄 Переключаюсь на резервную модель: %s", c.ModelBackup)
-		response, err = c.analyzeWithModel(text, c.ModelBackup)
+		response, usage, err = c.analyzeWithModel(text, c.ModelBackup)
 		if err == nil {
 			log.Printf("[OPENROUTER] ✅ Резервная модель ответила успешно")
-			return response, nil
+			return response, usage, nil
 		}
 		log.Printf("[OPENROUTER] ❌ Резервная модель тоже недоступна: %v", err)
-		return "", fmt.Errorf("обе модели недоступны: %w", err)
+		return "", nil, fmt.Errorf("обе модели недоступны: %w", err)
 	}
 
-	return "", err
+	return "", nil, err
 }
 
-func (c *OpenRouterClient) analyzeWithModel(text, model string) (string, error) {
+func (c *OpenRouterClient) analyzeWithModel(text, model string) (string, *models.TokenUsage, error) {
 	log.Printf("[OPENROUTER] Подготовка запроса к модели: %s", model)
 
 	systemPrompt := c.PromptConfig.BuildSystemPrompt()
@@ -90,7 +96,7 @@ func (c *OpenRouterClient) analyzeWithModel(text, model string) (string, error) 
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("ошибка маршалинга: %w", err)
+		return "", nil, fmt.Errorf("ошибка маршалинга: %w", err)
 	}
 
 	httpClient := &http.Client{Timeout: 90 * time.Second}
@@ -106,7 +112,7 @@ func (c *OpenRouterClient) analyzeWithModel(text, model string) (string, error) 
 
 		req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewBuffer(jsonData))
 		if err != nil {
-			return "", fmt.Errorf("ошибка создания запроса: %w", err)
+			return "", nil, fmt.Errorf("ошибка создания запроса: %w", err)
 		}
 		req.Header.Set("Authorization", "Bearer "+c.APIKey)
 		req.Header.Set("Content-Type", "application/json")
@@ -155,11 +161,22 @@ func (c *OpenRouterClient) analyzeWithModel(text, model string) (string, error) 
 		}
 
 		responseText := openRouterResp.Choices[0].Message.Content
+		
+		// Создаем структуру TokenUsage из ответа
+		tokenUsage := &models.TokenUsage{
+			PromptTokens:     openRouterResp.Usage.PromptTokens,
+			CompletionTokens: openRouterResp.Usage.CompletionTokens,
+			TotalTokens:      openRouterResp.Usage.TotalTokens,
+		}
+		
 		log.Printf("[OPENROUTER] ✅ Успешно! Длина ответа: %d символов", len(responseText))
-		return responseText, nil
+		log.Printf("[OPENROUTER] 📊 Токены: %d всего (запрос: %d, ответ: %d)", 
+			tokenUsage.TotalTokens, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
+		
+		return responseText, tokenUsage, nil
 	}
 
-	return "", fmt.Errorf("все %d попытки неудачны: %w", maxRetries, lastErr)
+	return "", nil, fmt.Errorf("все %d попытки неудачны: %w", maxRetries, lastErr)
 }
 
 

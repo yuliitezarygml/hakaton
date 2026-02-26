@@ -18,7 +18,14 @@ type AnalysisResponse struct {
 	Reasoning          string        `json:"reasoning"`
 	Sources            []Source      `json:"sources,omitempty"`
 	Verification       Verification  `json:"verification,omitempty"`
+	Usage              *TokenUsage   `json:"usage,omitempty"`
 	RawResponse        string        `json:"raw_response,omitempty"`
+}
+
+type TokenUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
 }
 
 type Verification struct {
