@@ -177,6 +177,7 @@ func (h *AnalyzerHandler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	log.Printf("[HANDLER] 💬 Ответ AI: %s", result.Response)
 	log.Printf("[HANDLER] ✅ Ответ отправлен")
 	
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
