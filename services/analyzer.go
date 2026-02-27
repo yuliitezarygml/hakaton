@@ -1,12 +1,18 @@
 package services
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
 	"regexp"
 	"strings"
+	"sync/atomic"
+	"text-analyzer/cache"
+	"text-analyzer/database"
 	"text-analyzer/models"
+	"time"
 )
 
 // AIClient — интерфейс для любого AI провайдера (OpenRouter, Groq)
@@ -19,6 +25,10 @@ type AnalyzerService struct {
 	fetcher      *ContentFetcher
 	serper       *SerperClient
 	promptConfig *PromptConfig
+
+	// Semaphore: max 1 concurrent AI request, rest wait in queue
+	sem     chan struct{}
+	waiting atomic.Int32
 }
 
 func NewAnalyzerService(client AIClient, fetcher *ContentFetcher, serper *SerperClient, promptConfig *PromptConfig) *AnalyzerService {
@@ -27,6 +37,7 @@ func NewAnalyzerService(client AIClient, fetcher *ContentFetcher, serper *Serper
 		fetcher:      fetcher,
 		serper:       serper,
 		promptConfig: promptConfig,
+		sem:          make(chan struct{}, 1),
 	}
 }
 
@@ -44,6 +55,18 @@ func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*m
 	}
 	report(fmt.Sprintf("📄 Читаю текст... %d символов", len(text)))
 
+	// Кэширование в Redis
+	textHash := sha256.Sum256([]byte(text))
+	cacheKey := "analysis:" + hex.EncodeToString(textHash[:])
+
+	if cachedResult, err := cache.Get(cacheKey); err == nil {
+		report("🚀 Найден результат в кэше Redis!")
+		var response models.AnalysisResponse
+		if err := json.Unmarshal([]byte(cachedResult), &response); err == nil {
+			return &response, nil
+		}
+	}
+
 	var searchContext string
 	if s.serper != nil && s.serper.APIKey != "" {
 		report("🔍 Ищу факты по теме в интернете...")
@@ -58,6 +81,18 @@ func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*m
 		}
 	}
 
+	// Queue: wait for a free slot (max 1 concurrent AI request).
+	// waiting counts all requests including the active one, so pos-1 = queue depth ahead.
+	pos := int(s.waiting.Add(1))
+	defer func() {
+		<-s.sem          // release slot
+		s.waiting.Add(-1) // decrement only after fully done
+	}()
+	if pos > 1 {
+		report(fmt.Sprintf("⏳ В очереди: %d запрос(ов) впереди вас, жду...", pos-1))
+	}
+	s.sem <- struct{}{} // acquire (blocks if another request is running)
+
 	report(fmt.Sprintf("🧠 Анализирую текст на манипуляции и дезинформацию... (%d симв.)", len(text)+len(searchContext)))
 	report("⏳ Проверяю источники, логику и факты...")
 
@@ -70,7 +105,7 @@ func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*m
 
 	report("📊 Обрабатываю результат...")
 	if tokenUsage != nil {
-		report(fmt.Sprintf("📊 Использовано токенов: %d (запрос: %d, ответ: %d)", 
+		report(fmt.Sprintf("📊 Использовано токенов: %d (запрос: %d, ответ: %d)",
 			tokenUsage.TotalTokens, tokenUsage.PromptTokens, tokenUsage.CompletionTokens))
 	}
 
@@ -118,6 +153,23 @@ func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*m
 		}
 	}
 
+	// Сохраняем в кэш Redis на 24 часа
+	if resJSON, err := json.Marshal(response); err == nil {
+		cache.Set(cacheKey, string(resJSON), 24*time.Hour)
+	}
+
+	// Сохраняем в БД Postgres
+	if database.DB != nil {
+		resJSON, _ := json.Marshal(response)
+		_, err := database.DB.Exec("INSERT INTO analysis_results (text, url, result) VALUES ($1, $2, $3)",
+			text, response.SourceURL, resJSON)
+		if err != nil {
+			report(fmt.Sprintf("⚠️ Ошибка сохранения в БД: %v", err))
+		} else {
+			report("💾 Результат сохранен в базу данных")
+		}
+	}
+
 	report("✅ Готово!")
 	return &response, nil
 }
@@ -151,12 +203,14 @@ func (s *AnalyzerService) AnalyzeURL(url string, progress ...func(string)) (*mod
 	}
 
 	response.SourceURL = url
+	// Update domain reputation stats
+	UpsertDomainStats(url, response.CredibilityScore)
 	return response, nil
 }
 
 func extractJSON(text string) string {
 	// Ищем JSON между ```json и ``` или просто { и }
-	
+
 	// Сначала пробуем найти в markdown блоке
 	if strings.Contains(text, "```json") {
 		start := strings.Index(text, "```json")
@@ -168,103 +222,102 @@ func extractJSON(text string) string {
 			}
 		}
 	}
-	
+
 	// Ищем первый { и последний }
 	start := strings.Index(text, "{")
 	end := strings.LastIndex(text, "}")
-	
+
 	if start != -1 && end != -1 && end > start {
 		jsonStr := text[start : end+1]
-		
+
 		// Очищаем от escape-последовательностей
 		jsonStr = strings.ReplaceAll(jsonStr, "\\n", " ")
 		jsonStr = strings.ReplaceAll(jsonStr, "\\t", " ")
 		jsonStr = strings.ReplaceAll(jsonStr, "\\\"", "\"")
-		
+
 		// Проверяем, что это валидный JSON
 		var testMap map[string]interface{}
 		if err := json.Unmarshal([]byte(jsonStr), &testMap); err == nil {
 			return jsonStr
 		}
-		
+
 		log.Printf("[PARSER] ⚠ JSON невалидный, возвращаю как есть")
 		return jsonStr
 	}
-	
+
 	return text
 }
-
 
 // verifyAndFindTruth - проверяет статью и ищет настоящую информацию
 func (s *AnalyzerService) verifyAndFindTruth(text string, analysis *models.AnalysisResponse) (*models.Verification, error) {
 	log.Printf("[VERIFIER] 🔍 Начинаю глубокую верификацию...")
-	
+
 	verification := &models.Verification{
 		IsFake:      analysis.CredibilityScore <= 5,
 		FakeReasons: []string{},
 	}
-	
+
 	// Собираем причины почему статья фальшивая
 	if len(analysis.Manipulations) > 0 {
-		verification.FakeReasons = append(verification.FakeReasons, 
+		verification.FakeReasons = append(verification.FakeReasons,
 			fmt.Sprintf("Найдено %d манипуляций и приемов демагогии", len(analysis.Manipulations)))
 	}
-	
+
 	if len(analysis.LogicalIssues) > 0 {
 		verification.FakeReasons = append(verification.FakeReasons,
 			fmt.Sprintf("Обнаружено %d логических противоречий", len(analysis.LogicalIssues)))
 	}
-	
+
 	if len(analysis.FactCheck.MissingEvidence) > 0 {
 		verification.FakeReasons = append(verification.FakeReasons,
 			fmt.Sprintf("Отсутствуют доказательства для %d утверждений", len(analysis.FactCheck.MissingEvidence)))
 	}
-	
+
 	if len(analysis.FactCheck.OpinionsAsFacts) > 0 {
 		verification.FakeReasons = append(verification.FakeReasons,
 			fmt.Sprintf("Мнения выдаются за факты: %d случаев", len(analysis.FactCheck.OpinionsAsFacts)))
 	}
-	
+
 	// Извлекаем ключевые утверждения для проверки
 	keywords := extractMainClaims(text, analysis)
 	if len(keywords) == 0 {
 		log.Printf("[VERIFIER] ⚠ Не удалось извлечь ключевые утверждения")
 		return verification, nil
 	}
-	
+
 	log.Printf("[VERIFIER] 🔑 Ключевые утверждения для проверки: %v", keywords)
-	
+
 	// Ищем настоящую информацию в интернете
 	var allResults []string
 	var verifiedSources []models.Source
-	
+
 	for i, claim := range keywords {
 		if i >= 3 { // Ограничиваем 3 запросами
 			break
 		}
-		
+
 		log.Printf("[VERIFIER] 🌐 Проверяю утверждение %d: %s", i+1, claim)
-		
+
 		results, err := s.serper.SearchMultiLanguage(claim)
 		if err != nil {
 			log.Printf("[VERIFIER] ⚠ Ошибка поиска: %v", err)
 			continue
 		}
-		
+
 		if len(results) > 0 {
 			log.Printf("[VERIFIER] ✓ Найдено %d результатов", len(results))
-			
+
 			// Берем топ-3 результата
 			for j, result := range results {
 				if j >= 3 {
 					break
 				}
-				
+
 				allResults = append(allResults, fmt.Sprintf(
 					"• %s\n  Источник: %s\n  %s",
 					result.Title, result.Link, result.Snippet,
 				))
-				
+
 				verifiedSources = append(verifiedSources, models.Source{
 					Title:       result.Title,
 					URL:         result.Link,
@@ -273,18 +326,18 @@ func (s *AnalyzerService) verifyAndFindTruth(text string, analysis *models.Analy
 			}
 		}
 	}
-	
+
 	if len(allResults) > 0 {
-		verification.RealInformation = "НАСТОЯЩАЯ ИНФОРМАЦИЯ ИЗ ПРОВЕРЕННЫХ ИСТОЧНИКОВ:\n\n" + 
+		verification.RealInformation = "НАСТОЯЩАЯ ИНФОРМАЦИЯ ИЗ ПРОВЕРЕННЫХ ИСТОЧНИКОВ:\n\n" +
 			strings.Join(allResults, "\n\n")
 		verification.VerifiedSources = verifiedSources
-		
+
 		log.Printf("[VERIFIER] ✅ Найдена настоящая информация из %d источников", len(verifiedSources))
 	} else {
 		verification.RealInformation = "Не удалось найти достоверную информацию для проверки утверждений из статьи."
 		log.Printf("[VERIFIER] ⚠ Настоящая информация не найдена")
 	}
-	
+
 	return verification, nil
 }
 
@@ -356,26 +409,25 @@ func extractMainClaims(text string, analysis *models.AnalysisResponse) []string 
 	return claims
 }
 
-
 // fixJSONTypes исправляет типы данных в JSON (строки -> числа/bool)
 func fixJSONTypes(jsonStr string) string {
 	// Исправляем credibility_score: "1" -> 1 или просто число без кавычек
 	re := regexp.MustCompile(`"credibility_score"\s*:\s*"?(\d+)"?`)
 	jsonStr = re.ReplaceAllString(jsonStr, `"credibility_score": $1`)
-	
+
 	// Исправляем is_fake: "true" -> true, "false" -> false
 	jsonStr = strings.ReplaceAll(jsonStr, `"is_fake": "true"`, `"is_fake": true`)
 	jsonStr = strings.ReplaceAll(jsonStr, `"is_fake": "false"`, `"is_fake": false`)
-	jsonStr = strings.ReplaceAll(jsonStr, `"is_fake": true`, `"is_fake": true`) // уже правильно
+	jsonStr = strings.ReplaceAll(jsonStr, `"is_fake": true`, `"is_fake": true`)   // уже правильно
 	jsonStr = strings.ReplaceAll(jsonStr, `"is_fake": false`, `"is_fake": false`) // уже правильно
-	
+
 	return jsonStr
 }
 
 // Chat — метод для общения с AI на основе контекста анализа
 func (s *AnalyzerService) Chat(message string, analysisContext *models.AnalysisResponse) (*models.ChatResponse, error) {
 	log.Printf("[CHAT] 💬 Получен вопрос пользователя: %s", message)
-	
+
 	// Формируем системный промпт на русском языке
 	systemPrompt := `Ты — ИИ-помощник по анализу новостей и борьбе с дезинформацией.
 
@@ -413,7 +465,7 @@ func (s *AnalyzerService) Chat(message string, analysisContext *models.AnalysisR
 		} else if analysisContext.CredibilityScore <= 6 {
 			verdict = "СОМНИТЕЛЬНАЯ"
 		}
-		
+
 		contextText = fmt.Sprintf(`
 === КОНТЕКСТ СТАТЬИ (РЕЗУЛЬТАТЫ АНАЛИЗА) ===
 
@@ -449,37 +501,37 @@ func (s *AnalyzerService) Chat(message string, analysisContext *models.AnalysisR
 			len(analysisContext.FactCheck.MissingEvidence),
 			analysisContext.Reasoning,
 		)
-		
+
 		if analysisContext.Verification.IsFake && len(analysisContext.Verification.FakeReasons) > 0 {
 			contextText += fmt.Sprintf("\n🚨 ПРИЗНАКИ ДЕЗИНФОРМАЦИИ:\n%s", formatList(analysisContext.Verification.FakeReasons))
 		}
-		
+
 		if analysisContext.Verification.RealInformation != "" {
 			contextText += fmt.Sprintf("\n\n✅ НАСТОЯЩАЯ ИНФОРМАЦИЯ ИЗ ПРОВЕРЕННЫХ ИСТОЧНИКОВ:\n%s", analysisContext.Verification.RealInformation)
 		}
-		
+
 		contextText += "\n\n=== КОНЕЦ КОНТЕКСТА ==="
 	} else {
 		contextText = "КОНТЕКСТ СТАТЬИ НЕ ПРЕДОСТАВЛЕН.\n\nОтвечай на общие вопросы о проверке новостей и борьбе с дезинформацией."
 	}
-	
+
 	// Формируем полный промпт
 	fullPrompt := fmt.Sprintf("%s\n\n%s\n\nВопрос пользователя: %s", systemPrompt, contextText, message)
-	
+
 	log.Printf("[CHAT] 🤖 Отправляю запрос к AI...")
-	
+
 	// Вызываем AI клиент
 	response, tokenUsage, err := s.client.Analyze(fullPrompt)
 	if err != nil {
 		log.Printf("[CHAT] ❌ Ошибка: %v", err)
 		return nil, fmt.Errorf("ошибка получения ответа от AI: %w", err)
 	}
-	
+
 	log.Printf("[CHAT] ✅ Ответ получен (%d символов)", len(response))
 	if tokenUsage != nil {
 		log.Printf("[CHAT] 📊 Использовано токенов: %d", tokenUsage.TotalTokens)
 	}
-	
+
 	return &models.ChatResponse{
 		Response: response,
 		Usage:    tokenUsage,
