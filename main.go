@@ -80,6 +80,7 @@ func main() {
 
 	analyzerHandler := handlers.NewAnalyzerHandler(analyzerService)
 	domainHandler := handlers.NewDomainHandler()
+	shareHandler := handlers.NewShareHandler()
 	adminHandler := handlers.NewAdminHandler(cfg)
 	log.Println("✓ Сервисы инициализированы")
 
@@ -90,6 +91,9 @@ func main() {
 	http.HandleFunc("/api/limits", analyzerHandler.Limits)
 	http.HandleFunc("/api/domain/", domainHandler.GetDomain)
 	http.HandleFunc("/api/domains/top", domainHandler.GetTopDomains)
+	http.HandleFunc("/api/share", shareHandler.Create)
+	http.HandleFunc("/api/share/", shareHandler.GetResult)
+	http.HandleFunc("/s/", shareHandler.ShowPage)
 
 	// Admin API
 	http.HandleFunc("/api/admin/stats", adminHandler.AuthMiddleware(adminHandler.GetStats))
