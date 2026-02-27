@@ -5,12 +5,16 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"text-analyzer/cache"
 	"text-analyzer/config"
+	"text-analyzer/database"
 	"text-analyzer/handlers"
+	"text-analyzer/logger"
 	"text-analyzer/services"
 )
 
 func main() {
+	log.SetOutput(logger.GetWriter())
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	log.Println("🚀 Запуск Text Analyzer...")
 
@@ -20,6 +24,10 @@ func main() {
 	}
 
 	log.Printf("✓ Конфигурация загружена")
+
+	database.InitDB(cfg.DbUrl)
+	cache.InitRedis(cfg.RedisUrl)
+
 	if cfg.UseGroq {
 		log.Printf("  - Режим: Groq ⚡")
 		log.Printf("  - Модель: %s", cfg.GroqModel)
@@ -71,12 +79,25 @@ func main() {
 	}
 
 	analyzerHandler := handlers.NewAnalyzerHandler(analyzerService)
+	domainHandler := handlers.NewDomainHandler()
+	adminHandler := handlers.NewAdminHandler(cfg)
 	log.Println("✓ Сервисы инициализированы")
 
 	http.HandleFunc("/api/analyze", analyzerHandler.Analyze)
 	http.HandleFunc("/api/analyze/stream", analyzerHandler.AnalyzeStream)
 	http.HandleFunc("/api/chat", analyzerHandler.Chat)
 	http.HandleFunc("/api/health", analyzerHandler.Health)
+	http.HandleFunc("/api/limits", analyzerHandler.Limits)
+	http.HandleFunc("/api/domain/", domainHandler.GetDomain)
+	http.HandleFunc("/api/domains/top", domainHandler.GetTopDomains)
+
+	// Admin API
+	http.HandleFunc("/api/admin/stats", adminHandler.AuthMiddleware(adminHandler.GetStats))
+	http.HandleFunc("/api/admin/logs", adminHandler.StreamLogs)
+
+	// Статические файлы админки
+	fs := http.FileServer(http.Dir("admin"))
+	http.Handle("/admin/", http.StripPrefix("/admin/", fs))
 
 	addr := ":" + cfg.Port
 	fmt.Println("\n" + strings.Repeat("=", 50))
