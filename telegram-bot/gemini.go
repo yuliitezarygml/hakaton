@@ -138,9 +138,9 @@ func WaitForGeminiFile(ctx context.Context, apiKey, fileName string) error {
 // geminiModels is the ordered list of models to try on quota/404 errors.
 // All use v1beta because file_data (uploaded file reference) is only supported there.
 var geminiModels = []string{
-	"gemini-2.0-flash-lite", // free tier, lightweight
-	"gemini-1.5-flash-8b",   // older free tier
-	"gemini-1.5-flash",      // fallback
+	"gemini-2.5-flash",      // works on this key, supports file_data
+	"gemini-flash-latest",   // alias, same tier
+	"gemini-2.0-flash-lite", // fallback
 }
 
 // AnalyzeVideoWithGemini sends the uploaded video to Gemini Flash for transcription
