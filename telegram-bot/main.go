@@ -504,6 +504,10 @@ func handleVideo(msg *tgbotapi.Message) {
 
 func runVideoAnalysis(ctx context.Context, chatID int64, msgID int, fileID, mimeType string) {
 	geminiKey := os.Getenv("GEMINI_API_KEY")
+	if geminiKey == "" {
+		edit(chatID, msgID, "❌ Видеоанализ недоступен: GEMINI_API_KEY не настроен.")
+		return
+	}
 
 	edit(chatID, msgID, "🎬 <b>Видео получено</b>\n\n<code>Скачиваю файл...</code>")
 
@@ -524,6 +528,10 @@ func runVideoAnalysis(ctx context.Context, chatID int64, msgID int, fileID, mime
 		return
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		edit(chatID, msgID, fmt.Sprintf("❌ <b>Ошибка скачивания видео:</b> HTTP %d", resp.StatusCode))
+		return
+	}
 	videoBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		edit(chatID, msgID, "❌ <b>Ошибка:</b> не удалось прочитать файл.\n<code>"+escHTML(err.Error())+"</code>")
@@ -557,8 +565,7 @@ func runVideoAnalysis(ctx context.Context, chatID int64, msgID int, fileID, mime
 	}
 
 	preview := description
-	if len([]rune(preview)) > 300 {
-		runes := []rune(preview)
+	if runes := []rune(preview); len(runes) > 300 {
 		preview = string(runes[:300]) + "..."
 	}
 	edit(chatID, msgID, fmt.Sprintf(
