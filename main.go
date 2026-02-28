@@ -64,7 +64,7 @@ func main() {
 	switch {
 	case cfg.UseGroq:
 		log.Println("⚡ Инициализация Groq клиента...")
-		groqClient := services.NewGroqClient(cfg.GroqAPIKey, cfg.GroqModel, promptConfig)
+		groqClient := services.NewGroqClient(cfg.GroqAPIKeys, cfg.GroqModel, promptConfig)
 		analyzerService = services.NewAnalyzerService(groqClient, contentFetcher, serperClient, promptConfig)
 		log.Println("✓ Groq режим активирован")
 
@@ -81,7 +81,8 @@ func main() {
 	analyzerHandler := handlers.NewAnalyzerHandler(analyzerService)
 	domainHandler := handlers.NewDomainHandler()
 	shareHandler := handlers.NewShareHandler()
-	adminHandler := handlers.NewAdminHandler(cfg)
+	adminHandler := handlers.NewAdminHandler(cfg, analyzerService)
+	dockerHandler := handlers.NewDockerHandler(adminHandler)
 	log.Println("✓ Сервисы инициализированы")
 
 	http.HandleFunc("/api/analyze", analyzerHandler.Analyze)
@@ -98,6 +99,14 @@ func main() {
 	// Admin API
 	http.HandleFunc("/api/admin/stats", adminHandler.AuthMiddleware(adminHandler.GetStats))
 	http.HandleFunc("/api/admin/logs", adminHandler.StreamLogs)
+	http.HandleFunc("/api/admin/pause", adminHandler.AuthMiddleware(adminHandler.Pause))
+	http.HandleFunc("/api/admin/resume", adminHandler.AuthMiddleware(adminHandler.Resume))
+	http.HandleFunc("/api/admin/status", adminHandler.AuthMiddleware(adminHandler.GetStatus))
+
+	// Docker management API
+	http.HandleFunc("/api/admin/docker/containers", adminHandler.AuthMiddleware(dockerHandler.ListContainers))
+	http.HandleFunc("/api/admin/docker/action", adminHandler.AuthMiddleware(dockerHandler.ContainerAction))
+	http.HandleFunc("/api/admin/docker/logs", dockerHandler.StreamContainerLogs)
 
 	// Статические файлы админки
 	fs := http.FileServer(http.Dir("admin"))

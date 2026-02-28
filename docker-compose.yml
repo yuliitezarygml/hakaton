@@ -1,0 +1,96 @@
+services:
+
+  backend:
+    build: .
+    env_file: .env
+    environment:
+      - DB_URL=postgres://user:password@postgres:5432/text_analyzer?sslmode=disable
+      - REDIS_URL=redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - analyzer-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  telegram-bot:
+    build: ./telegram-bot
+    env_file: .env
+    environment:
+      # Бот читает ../.env в коде, но в Docker .env уже передан через env_file
+      # API_BASE указывает внутри Docker-сети на backend
+      - API_BASE=http://backend:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - analyzer-network
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=text_analyzer
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - analyzer-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d text_analyzer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - analyzer-network
+
+  fact-guard:
+    build: ./Fact_Guard-main
+    container_name: fact-guard-app
+    environment:
+      - DEBUG=false
+      - ANALYZE_STREAM_URL=http://backend:8080/api/analyze/stream
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - analyzer-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      fact-guard:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - analyzer-network
+
+networks:
+  analyzer-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

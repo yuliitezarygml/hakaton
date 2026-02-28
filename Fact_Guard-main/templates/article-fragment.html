@@ -1,0 +1,9 @@
+<article class="article-fragment">
+    <div class="article-image-container" style="margin-left: -0.01px; width: 875px; border-radius: 20px; margin-top: 1px;">
+        <img src="/{{ article.ico }}" alt="{{ article.title }}" class="article-image">
+        <h1 class="article-title">{{ article.title }}</h1>
+    </div>
+    <div class="article-content">
+        {{ article.content|safe }}
+    </div>
+</article>

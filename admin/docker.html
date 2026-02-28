@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docker — ANALYST // ADMIN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Bebas+Neue&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="mian.css">
+  <style>
+    /* Docker-specific overrides */
+    .docker-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .ctr-row {
+      display: grid;
+      grid-template-columns: 10px 1fr 110px auto;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      transition: border-color .15s;
+    }
+
+    .ctr-row:hover {
+      border-color: var(--border-hi);
+    }
+
+    .state-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .state-dot.running {
+      background: var(--green);
+      box-shadow: 0 0 5px var(--green);
+    }
+
+    .state-dot.exited {
+      background: var(--red);
+    }
+
+    .state-dot.paused {
+      background: var(--amber);
+    }
+
+    .state-dot.created,
+    .state-dot.restarting {
+      background: #818cf8;
+    }
+
+    .ctr-info {
+      min-width: 0;
+    }
+
+    .ctr-name {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text-hi);
+    }
+
+    .ctr-meta {
+      font-size: 10px;
+      color: var(--text-lo);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .ctr-badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      text-align: center;
+    }
+
+    .ctr-badge.running {
+      color: var(--green);
+      border: 1px solid rgba(0, 201, 110, .3);
+      background: var(--green-dim);
+    }
+
+    .ctr-badge.exited {
+      color: var(--red);
+      border: 1px solid rgba(255, 51, 85, .3);
+      background: var(--red-dim);
+    }
+
+    .ctr-badge.paused {
+      color: var(--amber);
+      border: 1px solid rgba(240, 160, 0, .3);
+      background: var(--amber-glow);
+    }
+
+    .ctr-badge.created,
+    .ctr-badge.restarting {
+      color: #818cf8;
+      border: 1px solid rgba(129, 140, 248, .3);
+      background: rgba(129, 140, 248, .07);
+    }
+
+    .ctr-actions {
+      display: flex;
+      gap: 5px;
+    }
+
+    .act-btn {
+      font-family: var(--mono);
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-lo);
+      padding: 3px 9px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all .12s;
+    }
+
+    .act-btn:hover {
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+
+    .act-btn.start:hover {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .act-btn.stop:hover {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .act-btn.log-btn:hover {
+      border-color: #818cf8;
+      color: #818cf8;
+    }
+
+    .act-btn:disabled {
+      opacity: .3;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    /* Log stream */
+    .log-panel {
+      margin-top: 16px;
+      display: none;
+    }
+
+    .log-panel.active {
+      display: block;
+    }
+
+    .log-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      background: var(--surface);
+    }
+
+    .log-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--amber);
+    }
+
+    .log-close-btn {
+      font-family: var(--mono);
+      background: none;
+      border: none;
+      color: var(--text-lo);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 0 4px;
+    }
+
+    .log-close-btn:hover {
+      color: var(--text-hi);
+    }
+
+    .log-box {
+      height: 280px;
+      overflow-y: auto;
+      background: #040608;
+      border: 1px solid var(--border);
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      line-height: 1.65;
+      color: #7dd3fc;
+    }
+
+    .log-box::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    .log-box::-webkit-scrollbar-thumb {
+      background: var(--border-hi);
+    }
+
+    .log-entry {
+      word-break: break-all;
+    }
+
+    .log-entry.err {
+      color: var(--red);
+    }
+
+    /* toast */
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      font-family: var(--mono);
+      background: var(--surface2);
+      border: 1px solid var(--border-hi);
+      color: var(--text);
+      padding: 9px 14px;
+      font-size: 11px;
+      z-index: 9000;
+      display: none;
+      letter-spacing: .04em;
+    }
+
+    #toast.show {
+      display: block;
+    }
+
+    #toast.ok {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    #toast.err {
+      border-color: var(--red);
+      color: var(--red);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── AUTH ── -->
+  <div id="auth-overlay">
+    <div class="login-box">
+      <div class="lb-head">
+        <div class="sys">SYSTEM ACCESS</div>
+        <div class="sub">TERMINAL AUTHENTICATION REQUIRED</div>
+      </div>
+      <div class="lb-body">
+        <div class="lb-prompt">ENTER ADMIN TOKEN</div>
+        <div class="lb-field">
+          <span class="ps">₿</span>
+          <input type="password" id="admin-token" placeholder="****************"
+            onkeydown="if(event.key==='Enter') login()">
+          <span class="cursor"></span>
+        </div>
+        <button class="lb-btn" onclick="login()">AUTHENTICATE ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── APP ── -->
+  <div id="app" class="app" style="display:none">
+    <header class="hdr">
+      <div class="hdr-left">
+        <div class="logo">ANALYST <span>// ADMIN</span></div>
+        <div class="hdr-status">
+          <div class="dot"></div>
+          DOCKER CONTROL
+        </div>
+      </div>
+      <div class="hdr-right">
+        <span><span class="lbl">NODE:</span>openrouter-web:8080</span>
+        <span><span class="lbl">MODULE:</span>DOCKER</span>
+        <span id="hdr-clock"></span>
+      </div>
+    </header>
+
+    <div class="layout">
+
+      <nav class="sidebar">
+        <div class="nav-lbl">NAVIGATION</div>
+        <div class="nav-item" onclick="location.href='/admin/'"><span class="ic">◈</span>Dashboard</div>
+        <div class="nav-item active"><span class="ic">◎</span>Docker</div>
+        <div class="nav-item"><span class="ic">⬡</span>API Tester</div>
+        <div class="sb-div"></div>
+        <div class="nav-lbl">STATUS</div>
+        <div class="sb-kv">
+          <div>ANALYZER <span class="on" id="analyzer-st">ACTIVE</span></div>
+          <div>DOCKER <span class="on">CONNECTED</span></div>
+        </div>
+      </nav>
+
+      <main class="main">
+
+        <!-- Container list -->
+        <div class="grid-row" style="margin-bottom:16px">
+          <div class="panel" style="flex:1">
+            <div class="panel-hdr">
+              <span class="panel-title">Containers</span>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span class="panel-meta" id="ctr-count">—</span>
+                <button class="act-btn" onclick="loadContainers()">⟳ REFRESH</button>
+              </div>
+            </div>
+            <div id="container-list" class="docker-grid">
+              <div style="font-size:11px;color:var(--text-lo);padding:8px 0">Загрузка...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Log Panel -->
+        <div class="log-panel" id="log-panel">
+          <div class="log-hdr">
+            <span class="log-title" id="log-title">LOGS</span>
+            <button class="log-close-btn" onclick="closeLog()">✕ CLOSE</button>
+          </div>
+          <div class="log-box" id="log-box"></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    // ── Auth ──────────────────────────────────────────────────────────
+    let TOKEN = localStorage.getItem('adminToken') || '';
+
+    function login() {
+      const t = document.getElementById('admin-token').value.trim();
+      if (!t) return;
+      TOKEN = t;
+      localStorage.setItem('adminToken', t);
+      init();
+    }
+
+    async function authFetch(url, opts = {}) {
+      opts.headers = { ...(opts.headers || {}), 'X-Admin-Token': TOKEN };
+      const r = await fetch(url, opts);
+      if (r.status === 401) { localStorage.removeItem('adminToken'); location.reload(); return null; }
+      return r;
+    }
+
+    // ── Clock ─────────────────────────────────────────────────────────
+    function updateClock() {
+      const el = document.getElementById('hdr-clock');
+      if (el) el.textContent = new Date().toLocaleTimeString('en-GB');
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ── Init ──────────────────────────────────────────────────────────
+    async function init() {
+      const res = await authFetch('/api/admin/status');
+      if (!res) return;
+      document.getElementById('auth-overlay').style.display = 'none';
+      document.getElementById('app').style.display = '';
+      const d = await res.json();
+      const st = document.getElementById('analyzer-st');
+      if (d.is_paused) { st.textContent = 'PAUSED'; st.className = 'off'; }
+      else { st.textContent = 'ACTIVE'; st.className = 'on'; }
+      loadContainers();
+    }
+
+    // ── Containers ────────────────────────────────────────────────────
+    async function loadContainers() {
+      const list = document.getElementById('container-list');
+      list.innerHTML = '<div style="font-size:11px;color:var(--text-lo);padding:8px 0">Загрузка...</div>';
+
+      const res = await authFetch('/api/admin/docker/containers');
+      if (!res) return;
+
+      if (!res.ok) {
+        const err = await res.text();
+        list.innerHTML = `<div style="font-size:11px;color:var(--red);padding:8px 0">Ошибка: ${esc(err)}</div>`;
+        return;
+      }
+
+      const containers = await res.json();
+      document.getElementById('ctr-count').textContent =
+        (containers ? containers.length : 0) + ' containers';
+
+      if (!containers || containers.length === 0) {
+        list.innerHTML = '<div style="font-size:11px;color:var(--text-lo);padding:8px 0">Контейнеры не найдены</div>';
+        return;
+      }
+
+      list.innerHTML = '';
+      for (const c of containers) list.appendChild(buildCard(c));
+    }
+
+    function buildCard(c) {
+      const state = (c.state || '').toLowerCase();
+      const running = state === 'running';
+      const row = document.createElement('div');
+      row.className = 'ctr-row';
+      row.innerHTML = `
+    <div class="state-dot ${state}"></div>
+    <div class="ctr-info">
+      <div class="ctr-name">${esc(c.name)}</div>
+      <div class="ctr-meta">${esc(c.image)}${c.ports ? ' · ' + esc(c.ports) : ''} · ${esc(c.id)}</div>
+    </div>
+    <div class="ctr-badge ${state}">${esc(c.status || state)}</div>
+    <div class="ctr-actions">
+      <button class="act-btn start" onclick="doAction('${esc(c.name)}','start')" ${running ? 'disabled' : ''}>▶ START</button>
+      <button class="act-btn stop"  onclick="doAction('${esc(c.name)}','stop')"  ${!running ? 'disabled' : ''}>■ STOP</button>
+      <button class="act-btn"       onclick="doAction('${esc(c.name)}','restart')">↺ RESTART</button>
+      <button class="act-btn log-btn" onclick="openLog('${esc(c.name)}')">▤ LOGS</button>
+    </div>`;
+      return row;
+    }
+
+    // ── Actions ───────────────────────────────────────────────────────
+    async function doAction(name, action) {
+      const res = await authFetch('/api/admin/docker/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, action }),
+      });
+      if (!res) return;
+      if (res.ok) {
+        toast(`${action.toUpperCase()} → ${name}`, 'ok');
+        setTimeout(loadContainers, 1200);
+      } else {
+        toast(await res.text(), 'err');
+      }
+    }
+
+    // ── Log streaming ──────────────────────────────────────────────────
+    let logWS = null;
+
+    function openLog(name) {
+      if (logWS) logWS.close();
+      const box = document.getElementById('log-box');
+      const panel = document.getElementById('log-panel');
+      document.getElementById('log-title').textContent = 'LOGS — ' + name.toUpperCase();
+      box.innerHTML = '';
+      panel.classList.add('active');
+
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      logWS = new WebSocket(`${proto}://${location.host}/api/admin/docker/logs?token=${encodeURIComponent(TOKEN)}&container=${encodeURIComponent(name)}`);
+      logWS.onopen = () => appendLog(`[connected: ${name}]`, false);
+      logWS.onmessage = e => appendLog(e.data, e.data.includes('[ERROR]'));
+      logWS.onerror = () => appendLog('[ws error]', true);
+      logWS.onclose = () => appendLog('[disconnected]', false);
+    }
+
+    function closeLog() {
+      if (logWS) { logWS.close(); logWS = null; }
+      document.getElementById('log-panel').classList.remove('active');
+    }
+
+    function appendLog(line, isErr) {
+      const box = document.getElementById('log-box');
+      const d = document.createElement('div');
+      d.className = 'log-entry' + (isErr ? ' err' : '');
+      d.textContent = line;
+      box.appendChild(d);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────
+    function esc(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    let toastT;
+    function toast(msg, type) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'show ' + (type || '');
+      clearTimeout(toastT);
+      toastT = setTimeout(() => el.className = '', 3000);
+    }
+
+    // ── Bootstrap ───────────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+      if (TOKEN) init();
+    });
+  </script>
+</body>
+
+</html>

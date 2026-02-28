@@ -1,4 +1,28 @@
+# Environment
 .env
+.env.*
+*.env
+
+# Binaries
 *.exe
+*.dll
+*.so
+*.out
+
+# Logs
 *.log
+logs/
+
+# Temp
 tmp/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store

@@ -29,6 +29,8 @@ type AnalyzerService struct {
 	// Semaphore: max 1 concurrent AI request, rest wait in queue
 	sem     chan struct{}
 	waiting atomic.Int32
+	// Paused flag to stop processing
+	IsPaused atomic.Bool
 }
 
 func NewAnalyzerService(client AIClient, fetcher *ContentFetcher, serper *SerperClient, promptConfig *PromptConfig) *AnalyzerService {
@@ -47,6 +49,10 @@ func NewAnalyzerServiceGroq(client *GroqClient, fetcher *ContentFetcher, serper 
 }
 
 func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*models.AnalysisResponse, error) {
+	if s.IsPaused.Load() {
+		return nil, fmt.Errorf("анализ временно приостановлен администратором")
+	}
+
 	report := func(msg string) {
 		log.Printf("[ANALYZER] %s", msg)
 		if len(progress) > 0 && progress[0] != nil {
@@ -85,7 +91,7 @@ func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*m
 	// waiting counts all requests including the active one, so pos-1 = queue depth ahead.
 	pos := int(s.waiting.Add(1))
 	defer func() {
-		<-s.sem          // release slot
+		<-s.sem           // release slot
 		s.waiting.Add(-1) // decrement only after fully done
 	}()
 	if pos > 1 {
@@ -205,6 +211,18 @@ func (s *AnalyzerService) AnalyzeURL(url string, progress ...func(string)) (*mod
 	response.SourceURL = url
 	// Update domain reputation stats
 	UpsertDomainStats(url, response.CredibilityScore)
+
+	// Обновляем запись в БД с правильным URL (AnalyzeText сохранил без URL)
+	if database.DB != nil {
+		resJSON, _ := json.Marshal(response)
+		_, dbErr := database.DB.Exec(
+			"UPDATE analysis_results SET url=$1, result=$2 WHERE id=(SELECT MAX(id) FROM analysis_results WHERE url='')",
+			url, resJSON)
+		if dbErr != nil {
+			log.Printf("[ANALYZER] ⚠ Ошибка обновления URL в БД: %v", dbErr)
+		}
+	}
+
 	return response, nil
 }
 

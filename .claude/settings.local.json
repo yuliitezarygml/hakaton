@@ -5,7 +5,8 @@
       "Bash(cd /d/project/openrouter-web && npx create-next-app@latest frontend --js --tailwind --app --no-eslint --no-src-dir --import-alias \"@/*\" --yes 2>&1)",
       "Bash(cat:*)",
       "Bash(node:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(cd D:/project/openrouter-web/telegram-bot && go get github.com/go-telegram-bot-api/telegram-bot-api/v5 github.com/joho/godotenv && go mod tidy 2>&1)"
     ]
   }
 }

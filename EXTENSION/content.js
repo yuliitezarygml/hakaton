@@ -3,6 +3,9 @@
   if (window.__taRunning) return;
   window.__taRunning = true;
 
+  // ── Facebook detection ──────────────────────────────────────────
+  const onFacebook = /(?:^|\.)facebook\.com$/.test(location.hostname);
+
   // ── Overlay ────────────────────────────────────────────────────
   const overlay = document.createElement('div');
   overlay.style.cssText = `
@@ -81,7 +84,7 @@
   document.body.appendChild(overlay);
   document.body.appendChild(badge);
 
-  // ── Junk selectors to skip ──────────────────────────────────────
+  // ── Junk selectors (non-Facebook pages) ────────────────────────
   const SKIP = [
     'nav', 'header', 'footer', 'aside',
     'script', 'style', 'noscript', 'iframe', 'form',
@@ -97,27 +100,82 @@
     return SKIP_CLASS_RX.test(cls);
   }
 
-  // ── Collect elements & sort by page position ────────────────────
-  const pageH = Math.max(document.documentElement.scrollHeight, 1);
+  // ── Collect elements ────────────────────────────────────────────
+  let collected;
 
-  const elData = Array.from(
-    document.querySelectorAll('h1,h2,h3,h4,p,blockquote,figcaption')
-  ).filter(el => {
-    const text = el.innerText?.trim() ?? '';
-    return text.length >= 25 && !isJunk(el);
-  }).map(el => {
-    const rect = el.getBoundingClientRect();
-    const top = (rect.top + window.scrollY) / pageH; // 0..1 fraction
-    return {
-      el,
-      top,
-      tag: el.tagName.startsWith('H') ? el.tagName : '§',
-      text: (el.innerText?.trim() ?? '').slice(0, 140),
-      len:  (el.innerText?.trim() ?? '').length,
-    };
-  }).sort((a, b) => a.top - b.top);
+  if (onFacebook) {
+    // Facebook uses div[dir="auto"] / span[dir="auto"] for all user-generated text.
+    // We gather them inside [role="article"] (feed posts / single post page).
+    // Deduplication: if element A is a descendant of element B (both selected),
+    // keep only B (the outermost container with the full text).
+    let candidates = Array.from(
+      document.querySelectorAll('[role="article"] div[dir="auto"], [role="article"] span[dir="auto"]')
+    ).filter(el => {
+      const text = el.innerText?.trim() ?? '';
+      if (text.length < 30) return false;
+      // Skip navigation / chrome UI inside articles
+      if (el.closest('nav, [role="navigation"], [role="banner"]')) return false;
+      return true;
+    });
+
+    // Keep only outermost elements (drop descendants if ancestor already selected)
+    candidates = candidates.filter(el =>
+      !candidates.some(other => other !== el && other.contains(el))
+    );
+
+    // If no [role="article"] found (e.g. profile page), fall back to any dir="auto" divs
+    if (candidates.length === 0) {
+      candidates = Array.from(
+        document.querySelectorAll('div[dir="auto"]')
+      ).filter(el => {
+        const text = el.innerText?.trim() ?? '';
+        return text.length >= 40 &&
+          !el.closest('nav, header, footer, [role="navigation"], [role="banner"]');
+      });
+      candidates = candidates.filter(el =>
+        !candidates.some(other => other !== el && other.contains(el))
+      );
+    }
+
+    const pageH = Math.max(document.documentElement.scrollHeight, 1);
+    collected = candidates.map((el, idx) => {
+      const rect = el.getBoundingClientRect();
+      const top = (rect.top + window.scrollY) / pageH;
+      const text = el.innerText?.trim() ?? '';
+      return {
+        el,
+        top,
+        tag: '§',
+        text: text.slice(0, 140),
+        len: text.length,
+      };
+    }).sort((a, b) => a.top - b.top);
+
+  } else {
+    // ── Standard pages ─────────────────────────────────────────────
+    const pageH = Math.max(document.documentElement.scrollHeight, 1);
+    collected = Array.from(
+      document.querySelectorAll('h1,h2,h3,h4,p,blockquote,figcaption')
+    ).filter(el => {
+      const text = el.innerText?.trim() ?? '';
+      return text.length >= 25 && !isJunk(el);
+    }).map(el => {
+      const rect = el.getBoundingClientRect();
+      const top = (rect.top + window.scrollY) / pageH;
+      return {
+        el,
+        top,
+        tag: el.tagName.startsWith('H') ? el.tagName : '§',
+        text: (el.innerText?.trim() ?? '').slice(0, 140),
+        len:  (el.innerText?.trim() ?? '').length,
+      };
+    }).sort((a, b) => a.top - b.top);
+  }
+
+  const elData = collected;
 
   // ── Smooth sweep animation ──────────────────────────────────────
+  const pageH = Math.max(document.documentElement.scrollHeight, 1);
   const SCAN_DURATION = 3000; // ms for full top→bottom sweep
   const SCAN_LINE_VH  = 0.35; // scan line stays at 35% of viewport height
   const savedScrollY  = window.scrollY;

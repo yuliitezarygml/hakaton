@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANALYST // ADMIN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Bebas+Neue&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="mian.css">
+</head>
+
+<body>
+
+    <!-- ── AUTH ── -->
+    <div id="auth-overlay">
+        <div class="login-box">
+            <div class="lb-head">
+                <div class="sys">SYSTEM ACCESS</div>
+                <div class="sub">TERMINAL AUTHENTICATION REQUIRED</div>
+            </div>
+            <div class="lb-body">
+                <div class="lb-prompt">ENTER ADMIN TOKEN</div>
+                <div class="lb-field">
+                    <span class="ps">₿</span>
+                    <input type="password" id="admin-token" placeholder="****************"
+                        onkeydown="if(event.key==='Enter') login()">
+                    <span class="cursor"></span>
+                </div>
+                <button class="lb-btn" onclick="login()">AUTHENTICATE ▶</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── APP ── -->
+    <div id="app" class="app">
+        <header class="hdr">
+            <div class="hdr-left">
+                <div class="logo">ANALYST <span>// ADMIN</span></div>
+                <div class="hdr-status">
+                    <div class="dot"></div>
+                    SYSTEM ONLINE
+                </div>
+            </div>
+            <div class="hdr-right">
+                <span><span class="lbl">NODE:</span>openrouter-web:8080</span>
+                <span><span class="lbl">BUILD:</span>2.1.0</span>
+                <span id="hdr-clock"></span>
+            </div>
+        </header>
+
+        <div class="layout">
+
+            <nav class="sidebar">
+                <div class="nav-lbl">NAVIGATION</div>
+                <div class="nav-item active"><span class="ic">◈</span>Dashboard</div>
+                <div class="nav-item" onclick="location.href='/admin/docker.html'"><span class="ic">◎</span>Docker</div>
+                <div class="nav-item"><span class="ic">⬡</span>API Tester</div>
+                <div class="sb-div"></div>
+                <div class="nav-lbl">STATUS</div>
+                <div class="sb-kv">
+                    <div>AI <span class="on">GROQ</span></div>
+                    <div>DB <span class="on">CONNECTED</span></div>
+                    <div>WS <span id="ws-st" class="off">OFFLINE</span></div>
+                </div>
+            </nav>
+
+            <main class="main">
+
+                <!-- stats -->
+                <div class="stats-grid">
+                    <div class="stat">
+                        <div class="stat-lbl">Total Requests</div>
+                        <div class="stat-val" id="total-requests">—</div>
+                        <div class="stat-sub">all-time analyses</div>
+                        <div class="ctag">REQ</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-lbl">Average Score</div>
+                        <div class="stat-val" id="avg-score">—</div>
+                        <div class="stat-sub">credibility / 10</div>
+                        <div class="ctag">AVG</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-lbl">Threat Ratio</div>
+                        <div class="stat-val" id="ratio">— / —</div>
+                        <div class="stat-sub">fake / credible</div>
+                        <div class="ctag">F/R</div>
+                    </div>
+                </div>
+
+                <!-- table + chart -->
+                <div class="grid-row">
+                    <div class="panel">
+                        <div class="panel-hdr">
+                            <span class="panel-title">Recent Activity</span>
+                            <span class="panel-meta" id="tbl-meta">0 records</span>
+                        </div>
+                        <div style="overflow-x:auto">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Source</th>
+                                        <th>Score</th>
+                                        <th>Verdict</th>
+                                        <th>Timestamp</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-body">
+                                    <tr>
+                                        <td colspan="4" class="empty-row">AWAITING DATA</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="panel chart-panel">
+                        <div class="panel-hdr">
+                            <span class="panel-title">Threat Ratio</span>
+                        </div>
+                        <div class="panel-body">
+                            <div class="chart-wrap">
+                                <canvas id="ratioChart"></canvas>
+                                <div class="chart-center">
+                                    <div class="chart-val" id="chart-pct">—</div>
+                                    <div class="chart-sub">FAKE %</div>
+                                </div>
+                            </div>
+                            <div class="leg">
+                                <div class="leg-row">
+                                    <div class="leg-left">
+                                        <div class="leg-dot r"></div>
+                                        <span class="leg-lbl">FAKE</span>
+                                    </div>
+                                    <span class="leg-n" id="leg-fake">0</span>
+                                </div>
+                                <div class="leg-row">
+                                    <div class="leg-left">
+                                        <div class="leg-dot g"></div>
+                                        <span class="leg-lbl">CREDIBLE</span>
+                                    </div>
+                                    <span class="leg-n" id="leg-real">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- provider limits -->
+                <div class="panel limits-panel">
+                    <div class="panel-hdr">
+                        <span class="panel-title">AI Provider Limits</span>
+                        <span id="limits-next-update"
+                            style="font-size: .55rem; color: var(--text-lo); letter-spacing: .1em;"></span>
+                    </div>
+                    <div class="limit-grid" id="limits-grid">
+                        <div class="empty-row" style="grid-column: 1/-1">LOADING LIMITS...</div>
+                    </div>
+                </div>
+                <div class="panel" style="margin-bottom:.85rem; animation: fadein .35s ease .2s both;">
+                    <div class="panel-hdr">
+                        <div style="display: flex; align-items: center; gap: 1.5rem;">
+                            <span class="panel-title">System Log</span>
+                            <div class="ctrl-btns">
+                                <span id="backend-status-tag" class="active">STATUS: ACTIVE</span>
+                                <button class="btn-ctrl stop" onclick="controlBackend('pause')">STOP ANALYZER</button>
+                                <button class="btn-ctrl start" onclick="controlBackend('resume')">START
+                                    ANALYZER</button>
+                            </div>
+                        </div>
+                        <span class="panel-meta" id="log-meta">0 lines</span>
+                    </div>
+                    <div class="log-box" id="log-console">
+                        <div class="ll"><span class="ts">—</span>Waiting for connection...</div>
+                    </div>
+                </div>
+
+                <!-- api tester -->
+                <div class="panel" style="animation: fadein .35s ease .25s both;">
+                    <div class="panel-hdr">
+                        <span class="panel-title">API Tester</span>
+                    </div>
+                    <div style="padding:1.25rem 1.4rem">
+                        <div class="tester-row">
+                            <input type="text" id="test-url"
+                                placeholder="https://example.com/article  —or—  paste text directly">
+                            <button class="tester-btn" id="test-btn" onclick="runTest()">RUN ▶</button>
+                        </div>
+                        <pre id="test-out" class="tester-out"></pre>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <script src="mian.js"></script>
+</body>
+
+</html>

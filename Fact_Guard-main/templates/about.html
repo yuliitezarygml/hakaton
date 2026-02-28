@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}About Us{% endblock %}
+
+{% block content %}
+<section class="about">
+    
+    <div class="about-content">
+        <h1><i>О проекте Fact Guard</i></h1>
+
+        <h2>Кто мы?</h2>
+        <p>
+            Fact Guard — это проект, посвящённый борьбе с дезинформацией и повышению уровня медиаграмотности. 
+            Мы верим, что в эпоху информационного шума каждый человек должен уметь проверять факты 
+            и критически относиться к получаемой информации.
+        </p>
+
+        <h2>Наша миссия</h2>
+        <p>
+            Предоставить доступные инструменты и знания для определения фейков, верификации источников 
+            и развития навыков критического мышления.
+        </p>
+
+        <h2>Что мы предлагаем?</h2>
+        <ul class="features-list">
+            <li><strong>Мощный инструмент</strong> — с помощью которого вы можете получать глубокий ресёрч за минимальное время и трудозатраты с примерами источников и объективной оценкой AI-агента</li>
+            <li><strong>Библиотека статей</strong> — подробные материалы по проверке информации</li>
+            <li><strong>Практические советы</strong> — как распознавать дезинформацию в реальной жизни</li>
+            <li><strong>Анализ источников</strong> — методы проверки надежности информационных источников</li>
+        </ul>
+
+    </div>
+    <div class="about-contacts">
+
+        <img src="static/icons/fact-guard-logo.svg" alt="Fact Guard Logo">
+        <h1 style="margin-bottom: 25px; margin-top: 20px;"><i>Contacts:</i></h1>
+            <div class="contact-item">
+                <span class="contact-label">Отзывы и предложения:</span>
+                
+                
+                <a href="https://t.me/+1IwwggVRostmZThi" target="_blank" class="contact-link telegram-link" title="Telegram">
+                    <img src="static/icons/tg.svg" alt="Telegram" class="contact-icon telegram-icon">Telegram
+                </a>
+
+
+            </div>
+            <div class="contact-item">
+                <span class="contact-label">Техподдержка и сотрудничество:</span>
+                <div class="contact-copy-field" data-copy="mitsuhanocreations@gmail.com">
+                    <img src="static/icons/mail.png" alt="Email" class="contact-icon"> mitsuhanocreations@gmail.com
+                </div>
+                <div class="contact-copy-field" data-copy="+373 60651084">
+                    <img src="static/icons/phone.png" alt="Phone" class="contact-icon">+373 60651084
+                </div>
+            </div>
+                </a>
+<script src="/static/js/contacts.js"></script>
+            </script>
+           
+        </div>
+
+    </div>
+    
+</section>
+{% endblock %}

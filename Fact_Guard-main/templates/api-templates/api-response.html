@@ -1,0 +1,144 @@
+<div class="api-response-block"
+	 data-api-url="{{ api_result.url if api_result is defined and api_result else '' }}"
+	 data-stream-base="/api/analyze/stream"
+	 data-use-fake="{{ 'true' if use_fake else 'false' }}"
+	 data-fake-result='{{ api_result | tojson if use_fake and api_result else "" }}'
+	 data-fake-logs='{{ fake_logs | tojson if use_fake else "" }}'>
+	
+	{% if api_result %}
+	<div class="analysis-container">
+		<!-- Левая колонка: Результаты -->
+		<div class="analysis-results">
+			<!-- Карточка вердикта -->
+			<div class="verdict-card" data-verdict-level="pending">
+				<div class="verdict-header">
+					<div class="verdict-score-wrapper">
+						<div class="verdict-score-circle" data-field="credibility_score_visual">
+							<span class="score-value" data-field="credibility_score">-</span>
+							<span class="score-max">/10</span>
+						</div>
+						<div class="verdict-score-bar">
+							<div class="score-bar-fill" data-field="score_bar" style="width: 0%;"></div>
+						</div>
+					</div>
+					<div class="verdict-text">
+						<div class="verdict-label" data-field="final_verdict">Ожидание анализа...</div>
+						<div class="verdict-explanation" data-field="verdict_explanation">-</div>
+					</div>
+				</div>
+				<div class="verdict-source">
+					<span class="source-icon">🔗</span>
+					<a href="{{ api_result.url }}" target="_blank" class="source-link" data-field="source_url_link">{{ api_result.url | truncate(50) }}</a>
+				</div>
+			</div>
+
+			<!-- Однострочный лог -->
+			<div class="single-log-line">
+				<div class="log-dot progress"></div>
+				<span class="log-type-badge progress">start</span>
+				<span class="log-message">Ожидание начала анализа...</span>
+				<div class="log-spinner"></div>
+			</div>
+
+			<!-- Резюме -->
+			<div class="analysis-section">
+				<div class="section-header">
+					<span class="section-icon">📝</span>
+					<span class="section-title">Резюме</span>
+				</div>
+				<div class="section-content markdown-content" data-field="summary">
+					<p class="placeholder-text">Ожидание результатов анализа...</p>
+				</div>
+			</div>
+
+			<!-- Проблемы и находки -->
+			<div class="findings-grid">
+				<!-- Манипуляции -->
+				<div class="finding-card finding-card--warning">
+					<div class="finding-header">
+						<span class="finding-icon">⚠️</span>
+						<span class="finding-title">Манипуляции</span>
+						<span class="finding-count" data-field="manipulations_count">0</span>
+					</div>
+					<ul class="finding-list" data-field-list="manipulations">
+						<li class="placeholder-item">-</li>
+					</ul>
+				</div>
+
+				<!-- Логические проблемы -->
+				<div class="finding-card finding-card--issue">
+					<div class="finding-header">
+						<span class="finding-icon">🧩</span>
+						<span class="finding-title">Логические проблемы</span>
+						<span class="finding-count" data-field="logical_issues_count">0</span>
+					</div>
+					<ul class="finding-list" data-field-list="logical_issues">
+						<li class="placeholder-item">-</li>
+					</ul>
+				</div>
+
+				<!-- Недостающие доказательства -->
+				<div class="finding-card finding-card--missing">
+					<div class="finding-header">
+						<span class="finding-icon">❓</span>
+						<span class="finding-title">Недостающие доказательства</span>
+						<span class="finding-count" data-field="missing_evidence_count">0</span>
+					</div>
+					<ul class="finding-list" data-field-list="missing_evidence">
+						<li class="placeholder-item">-</li>
+					</ul>
+				</div>
+
+				<!-- Верифицированные факты -->
+				<div class="finding-card finding-card--success">
+					<div class="finding-header">
+						<span class="finding-icon">✅</span>
+						<span class="finding-title">Верифицированные факты</span>
+						<span class="finding-count" data-field="verifiable_facts_count">0</span>
+					</div>
+					<ul class="finding-list" data-field-list="verifiable_facts">
+						<li class="placeholder-item">-</li>
+					</ul>
+				</div>
+			</div>
+
+			<!-- Источники -->
+			<div class="analysis-section sources-section">
+				<div class="section-header">
+					<span class="section-icon">📚</span>
+					<span class="section-title">Источники</span>
+				</div>
+				<div class="sources-list" data-field-sources>
+					<div class="source-item placeholder-item">
+						<span>Нет данных</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Правая колонка: Streaming Log -->
+		<div class="analysis-log">
+			<div class="log-header">
+				<span class="log-icon">📡</span>
+				<span class="log-title">Процесс проверки</span>
+				<span class="log-status" data-field="log_status">В процессе...</span>
+			</div>
+			<div class="log-timeline" id="api-log-body">
+				<div class="log-entry log-entry--start" id="api-log-placeholder">
+					<div class="log-dot"></div>
+					<div class="log-content">
+						<span class="log-type-badge">start</span>
+						<span class="log-message">Ожидание начала анализа...</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% else %}
+	<div class="api-response-empty">
+		<div class="empty-icon">🔍</div>
+		<div class="empty-text">Нет данных для анализа</div>
+		<div class="empty-hint">Введите URL статьи для проверки</div>
+	</div>
+	{% endif %}
+</div>

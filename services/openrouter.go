@@ -13,10 +13,10 @@ import (
 )
 
 type OpenRouterClient struct {
-	APIKey        string
-	Model         string
-	ModelBackup   string
-	PromptConfig  *PromptConfig
+	APIKey       string
+	Model        string
+	ModelBackup  string
+	PromptConfig *PromptConfig
 }
 
 type OpenRouterRequest struct {
@@ -105,10 +105,6 @@ func (c *OpenRouterClient) analyzeWithModel(text, model string) (string, *models
 	const maxRetries = 3
 	var lastErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		if attempt > 1 {
-			log.Printf("[OPENROUTER] ⏳ Попытка %d/%d, жду 15 секунд...", attempt, maxRetries)
-			time.Sleep(15 * time.Second)
-		}
 
 		req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewBuffer(jsonData))
 		if err != nil {
@@ -135,10 +131,22 @@ func (c *OpenRouterClient) analyzeWithModel(text, model string) (string, *models
 
 		log.Printf("[OPENROUTER] ✓ Статус %d (%.2f сек), размер %d байт", resp.StatusCode, elapsed.Seconds(), len(body))
 
+		// Capture rate limit headers from every response
+		UpdateRateLimit("openrouter", resp, resp.StatusCode)
+
 		if resp.StatusCode == 429 {
-			log.Printf("[OPENROUTER] ⚠ Rate limit, повторяю...")
-			lastErr = fmt.Errorf("rate limit 429")
-			continue
+			waitSec := 60 // default
+			if ra := resp.Header.Get("Retry-After"); ra != "" {
+				fmt.Sscanf(ra, "%d", &waitSec)
+			}
+			// Also check x-ratelimit-reset-requests (some providers)
+			if ra := resp.Header.Get("X-Ratelimit-Reset-Requests"); ra != "" {
+				if d, err2 := time.ParseDuration(ra); err2 == nil {
+					waitSec = int(d.Seconds()) + 1
+				}
+			}
+			log.Printf("[OPENROUTER] ⚠ Rate limit 429 — лимит исчерпан. Ожидание: %d сек. Отмена повтора.", waitSec)
+			return "", nil, fmt.Errorf("лимит OpenRouter исчерпан (429), повторите через %d сек", waitSec)
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -161,44 +169,43 @@ func (c *OpenRouterClient) analyzeWithModel(text, model string) (string, *models
 		}
 
 		responseText := openRouterResp.Choices[0].Message.Content
-		
+
 		// Создаем структуру TokenUsage из ответа
 		tokenUsage := &models.TokenUsage{
 			PromptTokens:     openRouterResp.Usage.PromptTokens,
 			CompletionTokens: openRouterResp.Usage.CompletionTokens,
 			TotalTokens:      openRouterResp.Usage.TotalTokens,
 		}
-		
+
 		log.Printf("[OPENROUTER] ✅ Успешно! Длина ответа: %d символов", len(responseText))
-		log.Printf("[OPENROUTER] 📊 Токены: %d всего (запрос: %d, ответ: %d)", 
+		log.Printf("[OPENROUTER] 📊 Токены: %d всего (запрос: %d, ответ: %d)",
 			tokenUsage.TotalTokens, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
-		
+
 		return responseText, tokenUsage, nil
 	}
 
 	return "", nil, fmt.Errorf("все %d попытки неудачны: %w", maxRetries, lastErr)
 }
 
-
 // combineResponses объединяет результаты двух моделей для максимальной точности
 func (c *OpenRouterClient) combineResponses(response1, response2 string) string {
 	log.Printf("[OPENROUTER] 🔍 Анализирую ответы обеих моделей...")
-	
+
 	// Парсим оба JSON ответа
 	var data1, data2 map[string]interface{}
-	
+
 	json1 := extractJSONFromResponse(response1)
 	json2 := extractJSONFromResponse(response2)
-	
+
 	err1 := json.Unmarshal([]byte(json1), &data1)
 	err2 := json.Unmarshal([]byte(json2), &data2)
-	
+
 	// Если оба не распарсились, возвращаем первый
 	if err1 != nil && err2 != nil {
 		log.Printf("[OPENROUTER] ⚠ Не удалось распарсить ответы, возвращаю первый")
 		return response1
 	}
-	
+
 	// Если один не распарсился, возвращаем другой
 	if err1 != nil {
 		log.Printf("[OPENROUTER] ⚠ Модель 1 вернула невалидный JSON, использую модель 2")
@@ -208,10 +215,10 @@ func (c *OpenRouterClient) combineResponses(response1, response2 string) string 
 		log.Printf("[OPENROUTER] ⚠ Модель 2 вернула невалидный JSON, использую модель 1")
 		return response1
 	}
-	
+
 	// Объединяем данные
 	combined := make(map[string]interface{})
-	
+
 	// Summary - берем более длинное
 	summary1 := getString(data1, "summary")
 	summary2 := getString(data2, "summary")
@@ -220,7 +227,7 @@ func (c *OpenRouterClient) combineResponses(response1, response2 string) string 
 	} else {
 		combined["summary"] = summary2
 	}
-	
+
 	// Credibility score - берем минимум (консервативный подход: если одна модель видит проблему - это важно)
 	score1 := getInt(data1, "credibility_score")
 	score2 := getInt(data2, "credibility_score")
@@ -229,41 +236,41 @@ func (c *OpenRouterClient) combineResponses(response1, response2 string) string 
 		minScore = score2
 	}
 	combined["credibility_score"] = minScore
-	
+
 	// Reasoning - объединяем
 	reasoning1 := getString(data1, "reasoning")
 	reasoning2 := getString(data2, "reasoning")
 	combined["reasoning"] = fmt.Sprintf("МОДЕЛЬ 1: %s\n\nМОДЕЛЬ 2: %s", reasoning1, reasoning2)
-	
+
 	// Fact check - объединяем уникальные элементы
 	combined["fact_check"] = mergeFactCheck(data1, data2)
-	
+
 	// Manipulations - объединяем уникальные
 	combined["manipulations"] = mergeArrays(
 		getArray(data1, "manipulations"),
 		getArray(data2, "manipulations"),
 	)
-	
+
 	// Logical issues - объединяем уникальные
 	combined["logical_issues"] = mergeArrays(
 		getArray(data1, "logical_issues"),
 		getArray(data2, "logical_issues"),
 	)
-	
+
 	// Sources - объединяем
 	combined["sources"] = mergeSources(data1, data2)
-	
+
 	// Конвертируем обратно в JSON
 	result, err := json.MarshalIndent(combined, "", "  ")
 	if err != nil {
 		log.Printf("[OPENROUTER] ⚠ Ошибка объединения, возвращаю первый ответ")
 		return response1
 	}
-	
+
 	log.Printf("[OPENROUTER] ✅ Результаты успешно объединены")
-	log.Printf("[OPENROUTER] 📊 Итоговая оценка: %d/10 (среднее из %d и %d)", 
+	log.Printf("[OPENROUTER] 📊 Итоговая оценка: %d/10 (среднее из %d и %d)",
 		(score1+score2)/2, score1, score2)
-	
+
 	return string(result)
 }
 
@@ -315,62 +322,62 @@ func getArray(data map[string]interface{}, key string) []string {
 func mergeArrays(arr1, arr2 []string) []string {
 	seen := make(map[string]bool)
 	result := []string{}
-	
+
 	for _, item := range arr1 {
 		if !seen[item] {
 			seen[item] = true
 			result = append(result, item)
 		}
 	}
-	
+
 	for _, item := range arr2 {
 		if !seen[item] {
 			seen[item] = true
 			result = append(result, item)
 		}
 	}
-	
+
 	return result
 }
 
 func mergeFactCheck(data1, data2 map[string]interface{}) map[string]interface{} {
 	fc1, _ := data1["fact_check"].(map[string]interface{})
 	fc2, _ := data2["fact_check"].(map[string]interface{})
-	
+
 	if fc1 == nil {
 		fc1 = make(map[string]interface{})
 	}
 	if fc2 == nil {
 		fc2 = make(map[string]interface{})
 	}
-	
+
 	result := make(map[string]interface{})
-	
+
 	result["verifiable_facts"] = mergeArrays(
 		getArray(fc1, "verifiable_facts"),
 		getArray(fc2, "verifiable_facts"),
 	)
-	
+
 	result["opinions_as_facts"] = mergeArrays(
 		getArray(fc1, "opinions_as_facts"),
 		getArray(fc2, "opinions_as_facts"),
 	)
-	
+
 	result["missing_evidence"] = mergeArrays(
 		getArray(fc1, "missing_evidence"),
 		getArray(fc2, "missing_evidence"),
 	)
-	
+
 	return result
 }
 
 func mergeSources(data1, data2 map[string]interface{}) []interface{} {
 	sources1, _ := data1["sources"].([]interface{})
 	sources2, _ := data2["sources"].([]interface{})
-	
+
 	seen := make(map[string]bool)
 	result := []interface{}{}
-	
+
 	for _, src := range sources1 {
 		if srcMap, ok := src.(map[string]interface{}); ok {
 			if url, ok := srcMap["url"].(string); ok {
@@ -381,7 +388,7 @@ func mergeSources(data1, data2 map[string]interface{}) []interface{} {
 			}
 		}
 	}
-	
+
 	for _, src := range sources2 {
 		if srcMap, ok := src.(map[string]interface{}); ok {
 			if url, ok := srcMap["url"].(string); ok {
@@ -392,6 +399,6 @@ func mergeSources(data1, data2 map[string]interface{}) []interface{} {
 			}
 		}
 	}
-	
+
 	return result
 }

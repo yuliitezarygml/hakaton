@@ -23,19 +23,27 @@ func isFacebookURL(u string) bool {
 	return strings.Contains(u, "facebook.com/") || strings.Contains(u, "fb.com/") || strings.Contains(u, "fb.watch/")
 }
 
+// numericFBPostRe matches Facebook URLs with numeric user IDs: /1234567890/posts/9876543210/
+var numericFBPostRe = regexp.MustCompile(`mbasic\.facebook\.com/(\d{7,})/posts/(\d{7,})/?`)
+
 // toMbasic converts a facebook.com URL to mbasic.facebook.com for lightweight HTML scraping.
+// Numeric user-ID URLs (/123456/posts/789/) are rewritten to /story.php?... which mbasic handles.
 func toMbasic(u string) string {
 	u = strings.Replace(u, "https://www.facebook.com", "https://mbasic.facebook.com", 1)
 	u = strings.Replace(u, "https://facebook.com", "https://mbasic.facebook.com", 1)
 	u = strings.Replace(u, "https://m.facebook.com", "https://mbasic.facebook.com", 1)
 	// Strip tracking params that can cause redirects to login
 	if idx := strings.Index(u, "?"); idx != -1 {
-		// Keep the base URL only — tracking params break mbasic
 		u = u[:idx]
 	}
 	// Remove trailing # fragments
 	if idx := strings.Index(u, "#"); idx != -1 {
 		u = u[:idx]
+	}
+	// Convert numeric user-ID post URLs → story.php format that mbasic actually serves
+	// e.g. /1077768806/posts/10234638943809598/ → /story.php?story_fbid=10234638943809598&id=1077768806
+	if m := numericFBPostRe.FindStringSubmatch(u); m != nil {
+		u = "https://mbasic.facebook.com/story.php?story_fbid=" + m[2] + "&id=" + m[1]
 	}
 	return u
 }
@@ -463,7 +471,8 @@ func (f *ContentFetcher) fetchFacebook(originalURL string) (string, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Facebook mbasic статус: %d", resp.StatusCode)
+		log.Printf("[FETCHER] ⚠ mbasic вернул %d, пробую OG-теги из оригинального URL", resp.StatusCode)
+		return f.fetchFacebookOG(originalURL)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -486,6 +495,40 @@ func (f *ContentFetcher) fetchFacebook(originalURL string) (string, error) {
 		log.Printf("[FETCHER] ✓ Facebook: извлечено %d символов текста поста", len(content))
 	}
 
+	return content, nil
+}
+
+// fetchFacebookOG fetches Open Graph meta tags from the original Facebook URL.
+// Uses the facebookexternalhit UA which causes Facebook to serve full OG tags server-side
+// for public posts without requiring a login.
+func (f *ContentFetcher) fetchFacebookOG(originalURL string) (string, error) {
+	log.Printf("[FETCHER] 📘 Facebook OG fallback: %s", originalURL)
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", originalURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("OG fallback request: %w", err)
+	}
+	// facebookexternalhit UA triggers server-side OG tag rendering for public posts
+	req.Header.Set("User-Agent", "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("OG fallback error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("OG fallback read: %w", err)
+	}
+	log.Printf("[FETCHER] ✓ Facebook OG: статус %d, загружено %d байт", resp.StatusCode, len(body))
+
+	content := f.extractMetaTags(string(body))
+	if len(content) < 50 {
+		return "", fmt.Errorf("❌ Не удалось извлечь текст поста Facebook. Возможно, пост приватный или удалён")
+	}
+	log.Printf("[FETCHER] ✓ Facebook OG: извлечено %d символов", len(content))
 	return content, nil
 }
 

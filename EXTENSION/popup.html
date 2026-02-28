@@ -1,95 +1,59 @@
 <!DOCTYPE html>
-<html lang="ro">
-
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>VerifyX.md</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap"
-    rel="stylesheet">
+  <title>Text Analyzer</title>
   <link rel="stylesheet" href="popup.css">
 </head>
-
 <body>
   <div id="app">
 
     <header>
-      <span class="title">🔍 VerifyX.md</span>
-      <div class="header-right">
-        <button id="btn-history" class="btn-icon" title="Istoricul interogărilor">🕐</button>
-        <span id="status-dot" class="status-dot" title="Status backend"></span>
-      </div>
+      <span class="title">🔍 Text Analyzer</span>
+      <span id="status-dot" class="status-dot" title="Статус бэкенда"></span>
     </header>
 
     <!-- State: idle -->
     <div id="view-idle" class="view hidden">
-      <div id="domain-rep" class="domain-rep" style="display:none"></div>
       <button id="btn-analyze-url" class="btn-primary">
-        Analizează pagina
+        Анализировать текущую страницу
       </button>
       <p class="hint">
-        Sau selectați text pe pagină<br>
-        <a href="https://sinkdev.dev">Creatorul</a>
+        Или выделите текст на любой странице<br>
+        → правый клик → Проанализировать
       </p>
     </div>
 
-    <!-- State: auto-scan (silent, no animation) -->
-    <div id="view-auto" class="view hidden">
-      <div class="auto-state">
-        <div class="auto-spinner"></div>
-        <span id="auto-msg">Scanarea paginii...</span>
-      </div>
-      <button id="btn-cancel-auto" class="btn-secondary">✕ Anulare</button>
-    </div>
-
-    <!-- State: scanning (manual — content script with animation) -->
+    <!-- State: scanning (content script running on page) -->
     <div id="view-scanning" class="view hidden">
       <div class="scan-header">
         <div class="scan-pulse-dot"></div>
-        <span class="scan-title">Scanarea paginii</span>
-        <span id="scan-chars" class="scan-chars">0 caract.</span>
+        <span class="scan-title">Сканирование страницы</span>
+        <span id="scan-chars" class="scan-chars">0 симв.</span>
       </div>
-      <div class="scan-progress-bar">
-        <div id="scan-bar-fill" class="scan-bar-fill"></div>
-      </div>
+      <div class="scan-progress-bar"><div id="scan-bar-fill" class="scan-bar-fill"></div></div>
       <div id="scan-feed"></div>
-      <button id="btn-cancel-scan" class="btn-secondary">✕ Anulează</button>
+      <button id="btn-cancel-scan" class="btn-secondary">✕ Отменить</button>
     </div>
 
     <!-- State: analyzing (SSE streaming) -->
     <div id="view-analyzing" class="view hidden">
       <div id="event-log"></div>
-      <button id="btn-stop" class="btn-secondary">✕ Oprește</button>
+      <button id="btn-stop" class="btn-secondary">✕ Остановить</button>
     </div>
 
     <!-- State: result -->
     <div id="view-result" class="view hidden">
-      <div id="result-cache-label" class="cache-label hidden">⚡ Din cache</div>
       <div id="result-header">
         <span id="result-score"></span>
         <span id="result-verdict"></span>
       </div>
       <p id="result-summary"></p>
       <div id="result-sections"></div>
-      <button id="btn-new" class="btn-secondary">↺ Reanalizează</button>
-    </div>
-
-    <!-- State: history -->
-    <div id="view-history" class="view hidden">
-      <div class="history-header">
-        <button id="btn-back" class="btn-icon">← Înapoi</button>
-        <span class="history-title">Istoricul interogărilor</span>
-        <button id="btn-clear-history" class="btn-icon btn-danger" title="Șterge istoricul">🗑</button>
-      </div>
-      <div id="history-list">
-        <p class="hint" style="margin-top:16px">Istoricul este gol</p>
-      </div>
+      <button id="btn-new" class="btn-secondary">↺ Новый анализ</button>
     </div>
 
   </div>
   <script src="popup.js"></script>
 </body>
-
 </html>

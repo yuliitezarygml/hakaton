@@ -32,10 +32,10 @@ func UpsertDomainStats(rawURL string, score int) {
 	}
 	_, err := database.DB.Exec(`
 		INSERT INTO domain_stats (domain, total_analyses, sum_scores, avg_score, last_analyzed_at)
-		VALUES ($1, 1, $2, $2, NOW())
+		VALUES ($1, 1, $2::INTEGER, $2::FLOAT, NOW())
 		ON CONFLICT (domain) DO UPDATE SET
 			total_analyses   = domain_stats.total_analyses + 1,
-			sum_scores       = domain_stats.sum_scores + $2,
+			sum_scores       = domain_stats.sum_scores + $2::INTEGER,
 			avg_score        = (domain_stats.sum_scores + $2)::float / (domain_stats.total_analyses + 1),
 			last_analyzed_at = NOW()
 	`, domain, score)

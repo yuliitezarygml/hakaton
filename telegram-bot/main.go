@@ -149,12 +149,6 @@ func handleMessage(msg *tgbotapi.Message) {
 		return
 	}
 
-	// Video / animation handling
-	if msg.Video != nil || msg.Animation != nil {
-		handleVideo(msg)
-		return
-	}
-
 	text := strings.TrimSpace(msg.Text)
 	if text == "" {
 		return
@@ -173,24 +167,15 @@ func handleMessage(msg *tgbotapi.Message) {
 		cancelAnalysis(chatID)
 		send(chatID, "⛔ Анализ отменён.")
 		return
-
-	case text == "/history":
-		send(chatID, "📋 История сохраняется на стороне сервера. Используйте <b>Admin Panel</b> для просмотра.")
-		return
 	}
 
-	// Determine payload
-	var payload map[string]any
+	// Only URL analysis is supported
 	if isURL(text) {
-		payload = map[string]any{"url": text}
-	} else if len([]rune(text)) >= 100 {
-		payload = map[string]any{"text": text}
+		payload := map[string]any{"url": text}
+		startAnalysisForChat(chatID, payload, "")
 	} else {
-		send(chatID, "❓ Отправьте <b>URL</b> статьи или <b>текст</b> для анализа (минимум 100 символов).\n\nПример:\n<code>https://example.com/article</code>")
-		return
+		send(chatID, textNotSupportedMsg())
 	}
-
-	startAnalysisForChat(chatID, payload, "")
 }
 
 // ── Forwarded message handler ─────────────────────────────────────
@@ -204,7 +189,6 @@ func handleForwarded(msg *tgbotapi.Message) {
 
 	switch {
 	case msg.ForwardFromChat != nil:
-		// Forwarded from channel or group
 		chat := msg.ForwardFromChat
 		if chat.Title != "" {
 			sourceName = chat.Title
@@ -213,7 +197,6 @@ func handleForwarded(msg *tgbotapi.Message) {
 			sourceLink = "https://t.me/" + chat.UserName
 		}
 	case msg.ForwardFrom != nil:
-		// Forwarded from user
 		u := msg.ForwardFrom
 		if u.UserName != "" {
 			sourceName = "@" + u.UserName
@@ -222,7 +205,6 @@ func handleForwarded(msg *tgbotapi.Message) {
 			sourceName = strings.TrimSpace(u.FirstName + " " + u.LastName)
 		}
 	default:
-		// Privacy-hidden sender — try SenderUserName field (may be empty)
 		if msg.ForwardSenderName != "" {
 			sourceName = msg.ForwardSenderName
 		}
@@ -250,16 +232,14 @@ func handleForwarded(msg *tgbotapi.Message) {
 		}
 	}
 
-	// Build payload
+	// Build payload — only URL is supported
 	var payload map[string]any
 	if detectedURL != "" && isURL(detectedURL) {
 		payload = map[string]any{"url": detectedURL}
 	} else if isURL(text) {
 		payload = map[string]any{"url": text}
-	} else if len([]rune(text)) >= 30 {
-		payload = map[string]any{"text": text}
 	} else {
-		// Not enough content
+		// No URL found — politely inform
 		msg2 := "🔄 <b>Пересланное сообщение получено</b>"
 		if sourceName != "" {
 			if sourceLink != "" {
@@ -268,7 +248,7 @@ func handleForwarded(msg *tgbotapi.Message) {
 				msg2 += fmt.Sprintf("\n📢 Источник: <b>%s</b>", escHTML(sourceName))
 			}
 		}
-		msg2 += "\n\n❌ Сообщение слишком короткое для анализа (минимум 30 символов).\nДобавьте сообщение текстом или перешлите URL статьи."
+		msg2 += "\n\n" + textNotSupportedMsg()
 		send(chatID, msg2)
 		return
 	}
@@ -330,7 +310,6 @@ func runAnalysis(ctx context.Context, chatID int64, msgID int, payload map[strin
 	if len(payloadJSON) < 60 {
 		reScanData = string(payloadJSON)
 	} else {
-		// Use memory key
 		key := fmt.Sprintf("%d:%d", chatID, msgID)
 		historyMu.Lock()
 		history[key] = payload
@@ -365,13 +344,7 @@ func runAnalysis(ctx context.Context, chatID int64, msgID int, payload map[strin
 		return
 
 	case finalResult != nil:
-		shareURL := ""
-		if _, ok := payload["url"].(string); ok {
-			shareURL = requestShareURL(finalResult)
-		} else if _, ok := payload["text"].(string); ok {
-			shareURL = requestShareURL(finalResult)
-		}
-
+		shareURL := requestShareURL(finalResult)
 		editWithKeyboard(chatID, msgID, FormatResult(finalResult, sourceLabel), GetResultKeyboard(shareURL, reScanData))
 
 	case analysisErr != "":
@@ -446,133 +419,6 @@ func editWithKeyboard(chatID int64, msgID int, text string, kb tgbotapi.InlineKe
 	if _, err := bot.Send(cfg); err != nil {
 		log.Printf("[bot] edit error: %v", err)
 	}
-}
-
-// ── Video handler ─────────────────────────────────────────────────
-
-func handleVideo(msg *tgbotapi.Message) {
-	chatID := msg.Chat.ID
-
-	geminiKey := os.Getenv("GEMINI_API_KEY")
-	if geminiKey == "" {
-		send(chatID, "❌ Видеоанализ недоступен: GEMINI_API_KEY не настроен.")
-		return
-	}
-
-	var fileID string
-	var fileSize int
-	var mimeType string
-
-	switch {
-	case msg.Video != nil:
-		fileID = msg.Video.FileID
-		fileSize = msg.Video.FileSize
-		mimeType = msg.Video.MimeType
-		if mimeType == "" {
-			mimeType = "video/mp4"
-		}
-	case msg.Animation != nil:
-		fileID = msg.Animation.FileID
-		fileSize = msg.Animation.FileSize
-		mimeType = "video/mp4"
-	default:
-		return
-	}
-
-	const maxBytes = 50 * 1024 * 1024
-	if fileSize == 0 {
-		send(chatID, "❌ Не удалось определить размер видео. Пожалуйста, отправьте видео до 50 МБ.")
-		return
-	}
-	if fileSize > maxBytes {
-		send(chatID, fmt.Sprintf("❌ Видео слишком большое (%d МБ). Максимум — 50 МБ.", fileSize/1024/1024))
-		return
-	}
-
-	initMsg := sendAndGet(chatID, "🎬 <b>Видео получено</b>\n\n<code>Загружаю в Gemini для анализа...</code>")
-	if initMsg == nil {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	registerAnalysis(chatID, cancel)
-
-	go func() {
-		defer func() {
-			cancel()
-			unregisterAnalysis(chatID)
-		}()
-		runVideoAnalysis(ctx, chatID, initMsg.MessageID, fileID, mimeType, geminiKey)
-	}()
-}
-
-func runVideoAnalysis(ctx context.Context, chatID int64, msgID int, fileID, mimeType, geminiKey string) {
-	edit(chatID, msgID, "🎬 <b>Видео получено</b>\n\n<code>Скачиваю файл...</code>")
-
-	fileURL, err := bot.GetFileDirectURL(fileID)
-	if err != nil {
-		edit(chatID, msgID, "❌ <b>Ошибка:</b> не удалось получить ссылку на файл.\n<code>"+escHTML(err.Error())+"</code>")
-		return
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", fileURL, nil)
-	if err != nil {
-		edit(chatID, msgID, "❌ <b>Ошибка:</b> не удалось создать запрос.\n<code>"+escHTML(err.Error())+"</code>")
-		return
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		edit(chatID, msgID, "❌ <b>Ошибка:</b> не удалось скачать видео.\n<code>"+escHTML(err.Error())+"</code>")
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		edit(chatID, msgID, fmt.Sprintf("❌ <b>Ошибка скачивания видео:</b> HTTP %d", resp.StatusCode))
-		return
-	}
-	videoBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		edit(chatID, msgID, "❌ <b>Ошибка:</b> не удалось прочитать файл.\n<code>"+escHTML(err.Error())+"</code>")
-		return
-	}
-
-	edit(chatID, msgID, "🎬 <b>Видео получено</b>\n\n<code>Загружаю в Gemini...</code>")
-	geminiFile, err := UploadVideoToGemini(ctx, geminiKey, videoBytes, mimeType)
-	if err != nil {
-		edit(chatID, msgID, "❌ <b>Ошибка загрузки в Gemini:</b>\n<code>"+escHTML(err.Error())+"</code>")
-		return
-	}
-	defer DeleteGeminiFile(geminiKey, geminiFile.Name)
-
-	edit(chatID, msgID, "🎬 <b>Видео получено</b>\n\n<code>Gemini обрабатывает файл...</code>")
-	if err := WaitForGeminiFile(ctx, geminiKey, geminiFile.Name); err != nil {
-		edit(chatID, msgID, "❌ <b>Ошибка обработки файла:</b>\n<code>"+escHTML(err.Error())+"</code>")
-		return
-	}
-
-	edit(chatID, msgID, "🎬 <b>Видео получено</b>\n\n<code>Gemini расшифровывает речь и кадры...</code>")
-	description, err := AnalyzeVideoWithGemini(ctx, geminiKey, geminiFile.URI, mimeType)
-	if err != nil {
-		edit(chatID, msgID, "❌ <b>Ошибка анализа Gemini:</b>\n<code>"+escHTML(err.Error())+"</code>")
-		return
-	}
-
-	if len([]rune(description)) < 30 {
-		edit(chatID, msgID, "⚠️ Gemini не смог извлечь достаточно информации из видео.")
-		return
-	}
-
-	preview := description
-	if runes := []rune(preview); len(runes) > 300 {
-		preview = string(runes[:300]) + "..."
-	}
-	edit(chatID, msgID, fmt.Sprintf(
-		"🎬 <b>Видео расшифровано</b>\n\n<code>%s</code>\n\n⏳ <b>Анализирую на дезинформацию...</b>",
-		escHTML(preview),
-	))
-
-	payload := map[string]any{"text": description}
-	runAnalysis(ctx, chatID, msgID, payload, "")
 }
 
 // ── Callback handler ─────────────────────────────────────────────
@@ -657,16 +503,25 @@ func isURL(s string) bool {
 	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
 }
 
+func textNotSupportedMsg() string {
+	return `🙏 <b>Пожалуйста, отправьте ссылку на статью или новость.</b>
+
+Анализ текста пока находится в разработке. Бот пока умеет проверять только <b>URL</b>-адреса.
+
+<b>Пример:</b>
+<code>https://example.com/article</code>
+
+Как только анализ текста будет готов — мы сразу вас уведомим! 🚀`
+}
+
 func startText() string {
 	return `🔍 <b>Text Analyzer Bot</b>
 
-Я анализирую статьи, тексты и <b>видео</b> на предмет дезинформации, манипуляций и логических ошибок.
+Я анализирую статьи и новости на предмет <b>дезинформации</b>, манипуляций и логических ошибок.
 
 <b>Как использовать:</b>
 • Отправьте <b>URL</b> статьи — и я её проанализирую
-• Вставьте <b>текст</b> (мин. 100 символов) напрямую
-• Отправьте <b>видео</b> (~10 сек) — расшифрую речь + опишу кадры
-• <b>Перешлите</b> любое сообщение из канала или чата
+• <b>Перешлите</b> сообщение из канала или чата с ссылкой
 
 <b>Команды:</b>
 /cancel — остановить текущий анализ
@@ -676,24 +531,17 @@ func startText() string {
 func helpText() string {
 	return `📖 <b>Помощь</b>
 
-<b>Отправить URL:</b>
+<b>Отправить URL статьи:</b>
 <code>https://example.com/article</code>
 
-<b>Отправить текст:</b>
-Просто вставьте текст статьи (минимум 100 символов).
-
-🎬 <b>Отправить видео (~10 сек):</b>
-Бот расшифрует речь через Gemini AI и опишет содержимое кадров,
-затем проверит на дезинформацию. Максимум 50 МБ.
-
-🔁 <b>Переслать сообщение из канала:</b>
-Перешлите любое сообщение — бот автоматически обнаружит источник.
+<b>Переслать сообщение из канала:</b>
+Перешлите любое сообщение содержащее ссылку — бот автоматически обнаружит источник и проверит статью.
 
 <b>Результат включает:</b>
 • Балл достоверности (0–10)
 • Вердикт (достоверно / сомнительно / дезинформация)
 • Краткое резюме
-• Список манипуляций и почему они таковы
+• Список манипуляций
 • Логические ошибки
 • Утверждения без доказательств
 

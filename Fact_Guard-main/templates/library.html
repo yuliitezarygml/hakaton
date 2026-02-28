@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Methodologys{% endblock %}
+
+{% block content %}
+<section class="library">
+    <h1>Библиотека статей</h1>
+    <p class="section-subtitle">Изучайте основы проверки информации и борьбы с дезинформацией</p>
+
+    <div class="articles-grid">
+        {% for article in articles %}
+        <div class="article-card" data-article-id="{{ article.id }}">
+            <div class="article-image-container">
+                <img src="/{{ article.ico }}" alt="Фото статьи" width="400" height="300" class="article-image">
+                <h3 class="article-title">{{ article.title }}</h3>
+            </div>
+            <p class="article-preview">{{ article.preview | truncate(250) }}</p>
+            <a href="#" class="read-more" data-article-id="{{ article.id }}">Читать далее →</a>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Модальное окно для отображения полной статьи -->
+<div id="articleModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-modal-close="true"></div>
+    <div class="modal-shell" role="dialog" aria-modal="true">
+        <div id="articleContent" class="modal-article"></div>
+    </div>
+</div>
+{% endblock %}
