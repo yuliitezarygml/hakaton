@@ -67,7 +67,10 @@ func UploadVideoToGemini(ctx context.Context, apiKey string, data []byte, mimeTy
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Gemini upload HTTP %d: %s", resp.StatusCode, string(body))
 	}
@@ -84,7 +87,10 @@ func UploadVideoToGemini(ctx context.Context, apiKey string, data []byte, mimeTy
 // WaitForGeminiFile polls the file status until ACTIVE or timeout (30s).
 func WaitForGeminiFile(ctx context.Context, apiKey, fileName string) error {
 	url := geminiBase + "/" + fileName + "?key=" + apiKey
-	deadline := time.Now().Add(30 * time.Second)
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		deadline = time.Now().Add(30 * time.Second)
+	}
 
 	for time.Now().Before(deadline) {
 		if ctx.Err() != nil {
@@ -99,11 +105,17 @@ func WaitForGeminiFile(ctx context.Context, apiKey, fileName string) error {
 		if err != nil {
 			return fmt.Errorf("poll request: %w", err)
 		}
-		body, _ := io.ReadAll(resp.Body)
+		readBody, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		if readErr != nil {
+			return fmt.Errorf("read poll response body: %w", readErr)
+		}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("Gemini poll HTTP %d: %s", resp.StatusCode, string(readBody))
+		}
 
 		var f GeminiFile
-		if err := json.Unmarshal(body, &f); err != nil {
+		if err := json.Unmarshal(readBody, &f); err != nil {
 			return fmt.Errorf("parse poll response: %w", err)
 		}
 
@@ -115,6 +127,9 @@ func WaitForGeminiFile(ctx context.Context, apiKey, fileName string) error {
 		}
 
 		time.Sleep(2 * time.Second)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 	}
 	return fmt.Errorf("timeout waiting for Gemini file to become active")
 }
@@ -170,7 +185,10 @@ Describe what is visually shown: setting, people present, text on screen, graphi
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read response body: %w", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("Gemini generateContent HTTP %d: %s", resp.StatusCode, string(respBody))
 	}
