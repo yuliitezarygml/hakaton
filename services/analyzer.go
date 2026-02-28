@@ -124,6 +124,8 @@ func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*m
 		cleanJSON = strings.ReplaceAll(cleanJSON, "\t", " ")
 		if err := json.Unmarshal([]byte(cleanJSON), &response); err != nil {
 			report("❌ Не удалось обработать результат")
+			log.Printf("[ANALYZER ERROR] JSON Parse Error: %v", err)
+			log.Printf("[ANALYZER ERROR] Raw JSON that failed: \n%s", cleanJSON)
 			return &models.AnalysisResponse{
 				Summary:     "Не удалось распарсить ответ",
 				RawResponse: rawResponse,
