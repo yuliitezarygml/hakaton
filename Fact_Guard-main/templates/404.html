@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Страница не найдена{% endblock %}
+{% block title %}{{ i18n.error_404.title | default('Page Not Found') }}{% endblock %}
 
 {% block content %}
 <section class="error-page">
     <h1>404</h1>
-    <h2>Статья не найдена</h2>
-    <p>К сожалению, запрашиваемая статья недоступна.</p>
-    <a href="/library" class="btn btn-primary">Вернуться в библиотеку</a>
+    <h2>{{ i18n.error_404.heading | default('Article Not Found') }}</h2>
+    <p>{{ i18n.error_404.text | default('Unfortunately, the requested article is unavailable.') }}</p>
+    <a href="/library" class="btn btn-primary">{{ i18n.error_404.button | default('Return to Library') }}</a>
 </section>
 {% endblock %}

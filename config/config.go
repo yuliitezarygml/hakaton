@@ -15,6 +15,7 @@ type Config struct {
 	GroqAPIKeys           []string
 	GroqModel             string
 	SerperAPIKey          string
+	GoogleFactCheckAPIKey string
 	Port                  string
 	DbUrl                 string
 	RedisUrl              string
@@ -48,6 +49,7 @@ func Load() (*Config, error) {
 		GroqAPIKeys:           groqKeys,
 		GroqModel:             getEnvOrDefault("GROQ_MODEL", "llama-3.3-70b-versatile"),
 		SerperAPIKey:          os.Getenv("SERPER_API_KEY"),
+		GoogleFactCheckAPIKey: os.Getenv("GOOGLE_FACT_CHECK_API_KEY"),
 		Port:                  getEnvOrDefault("PORT", "8080"),
 		DbUrl:                 os.Getenv("DB_URL"),
 		RedisUrl:              os.Getenv("REDIS_URL"),

@@ -1,41 +1,38 @@
 {% extends "base.html" %}
 
-{% block title %}About Us{% endblock %}
+{% block title %}{{ i18n.about.title | default('About Us') }}{% endblock %}
 
 {% block content %}
 <section class="about">
     
     <div class="about-content">
-        <h1><i>О проекте Fact Guard</i></h1>
+        <h1><i>{{ i18n.about.project_title | default('About the Fact Guard Project') }}</i></h1>
 
-        <h2>Кто мы?</h2>
+        <h2>{{ i18n.about.who_we_are | default('Who are we?') }}</h2>
         <p>
-            Fact Guard — это проект, посвящённый борьбе с дезинформацией и повышению уровня медиаграмотности. 
-            Мы верим, что в эпоху информационного шума каждый человек должен уметь проверять факты 
-            и критически относиться к получаемой информации.
+            {{ i18n.about.who_we_are_text | default('Fact Guard is a project dedicated to combating disinformation and improving media literacy. We believe that in an era of information noise, everyone should be able to verify facts and think critically about the information they receive.') }}
         </p>
 
-        <h2>Наша миссия</h2>
+        <h2>{{ i18n.about.mission | default('Our Mission') }}</h2>
         <p>
-            Предоставить доступные инструменты и знания для определения фейков, верификации источников 
-            и развития навыков критического мышления.
+            {{ i18n.about.mission_text | default('To provide accessible tools and knowledge for identifying fakes, verifying sources, and developing critical thinking skills.') }}
         </p>
 
-        <h2>Что мы предлагаем?</h2>
+        <h2>{{ i18n.about.what_we_offer | default('What do we offer?') }}</h2>
         <ul class="features-list">
-            <li><strong>Мощный инструмент</strong> — с помощью которого вы можете получать глубокий ресёрч за минимальное время и трудозатраты с примерами источников и объективной оценкой AI-агента</li>
-            <li><strong>Библиотека статей</strong> — подробные материалы по проверке информации</li>
-            <li><strong>Практические советы</strong> — как распознавать дезинформацию в реальной жизни</li>
-            <li><strong>Анализ источников</strong> — методы проверки надежности информационных источников</li>
+            <li><strong>{{ i18n.about.features.tool.title | default('Powerful Tool') }}</strong> {{ i18n.about.features.tool.text | default('— with which you can get deep research in minimal time and effort with source examples and objective AI agent assessment') }}</li>
+            <li><strong>{{ i18n.about.features.library.title | default('Article Library') }}</strong> {{ i18n.about.features.library.text | default('— detailed materials on information verification') }}</li>
+            <li><strong>{{ i18n.about.features.tips.title | default('Practical Tips') }}</strong> {{ i18n.about.features.tips.text | default('— how to recognize disinformation in real life') }}</li>
+            <li><strong>{{ i18n.about.features.analysis.title | default('Source Analysis') }}</strong> {{ i18n.about.features.analysis.text | default('— methods for verifying the reliability of information sources') }}</li>
         </ul>
 
     </div>
     <div class="about-contacts">
 
         <img src="static/icons/fact-guard-logo.svg" alt="Fact Guard Logo">
-        <h1 style="margin-bottom: 25px; margin-top: 20px;"><i>Contacts:</i></h1>
+        <h1 style="margin-bottom: 25px; margin-top: 20px;"><i>{{ i18n.about.contacts | default('Contacts:') }}</i></h1>
             <div class="contact-item">
-                <span class="contact-label">Отзывы и предложения:</span>
+                <span class="contact-label">{{ i18n.about.feedback_label | default('Feedback and suggestions:') }}</span>
                 
                 
                 <a href="https://t.me/+1IwwggVRostmZThi" target="_blank" class="contact-link telegram-link" title="Telegram">
@@ -45,7 +42,7 @@
 
             </div>
             <div class="contact-item">
-                <span class="contact-label">Техподдержка и сотрудничество:</span>
+                <span class="contact-label">{{ i18n.about.support_label | default('Technical support and cooperation:') }}</span>
                 <div class="contact-copy-field" data-copy="mitsuhanocreations@gmail.com">
                     <img src="static/icons/mail.png" alt="Email" class="contact-icon"> mitsuhanocreations@gmail.com
                 </div>

@@ -24,6 +24,7 @@ type AnalyzerService struct {
 	client       AIClient
 	fetcher      *ContentFetcher
 	serper       *SerperClient
+	factCheck    *GoogleFactCheckClient
 	promptConfig *PromptConfig
 
 	// Semaphore: max 1 concurrent AI request, rest wait in queue
@@ -33,19 +34,20 @@ type AnalyzerService struct {
 	IsPaused atomic.Bool
 }
 
-func NewAnalyzerService(client AIClient, fetcher *ContentFetcher, serper *SerperClient, promptConfig *PromptConfig) *AnalyzerService {
+func NewAnalyzerService(client AIClient, fetcher *ContentFetcher, serper *SerperClient, factCheck *GoogleFactCheckClient, promptConfig *PromptConfig) *AnalyzerService {
 	return &AnalyzerService{
 		client:       client,
 		fetcher:      fetcher,
 		serper:       serper,
+		factCheck:    factCheck,
 		promptConfig: promptConfig,
 		sem:          make(chan struct{}, 1),
 	}
 }
 
 // NewAnalyzerServiceGroq — алиас для удобства (тот же конструктор)
-func NewAnalyzerServiceGroq(client *GroqClient, fetcher *ContentFetcher, serper *SerperClient, promptConfig *PromptConfig) *AnalyzerService {
-	return NewAnalyzerService(client, fetcher, serper, promptConfig)
+func NewAnalyzerServiceGroq(client *GroqClient, fetcher *ContentFetcher, serper *SerperClient, factCheck *GoogleFactCheckClient, promptConfig *PromptConfig) *AnalyzerService {
+	return NewAnalyzerService(client, fetcher, serper, factCheck, promptConfig)
 }
 
 func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*models.AnalysisResponse, error) {
@@ -84,6 +86,20 @@ func (s *AnalyzerService) AnalyzeText(text string, progress ...func(string)) (*m
 			report("✓ Нашёл дополнительный контекст из сети")
 		} else {
 			report("⚠ По теме ничего не нашлось, продолжаю без контекста")
+		}
+	}
+
+	// Google Fact Check Tools API — проверка по международной базе фейков
+	if s.factCheck != nil && s.factCheck.APIKey != "" {
+		report("🕵️ Проверяю по базе Google Fact Check...")
+		factCheckResults, err := s.factCheck.Search(text)
+		if err != nil {
+			report("⚠ Google Fact Check недоступен, продолжаю без него")
+		} else if factCheckResults != "" {
+			searchContext += factCheckResults
+			report("✅ Найдены записи в базе проверки фактов!")
+		} else {
+			report("ℹ В базе Google Fact Check совпадений не найдено")
 		}
 	}
 

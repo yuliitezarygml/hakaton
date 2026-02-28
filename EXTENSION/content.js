@@ -8,8 +8,10 @@
 
   // ── Overlay ────────────────────────────────────────────────────
   const overlay = document.createElement('div');
+  // Use explicit 100vw/100vh + top/left:0 instead of inset:0 — avoids issues with
+  // Facebook's contain:layout / overflow:hidden on <body> making fixed elements invisible.
   overlay.style.cssText = `
-    position: fixed; inset: 0;
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(10, 10, 20, 0.55);
     z-index: 2147483646;
     pointer-events: none;
@@ -81,8 +83,11 @@
   badge.appendChild(dot);
   badge.appendChild(badgeText);
 
-  document.body.appendChild(overlay);
-  document.body.appendChild(badge);
+  // Append to <html> rather than <body> — on Facebook, <body> has contain:layout
+  // which traps position:fixed children inside it (they don't reach the viewport).
+  const mountRoot = document.documentElement ?? document.body;
+  mountRoot.appendChild(overlay);
+  mountRoot.appendChild(badge);
 
   // ── Junk selectors (non-Facebook pages) ────────────────────────
   const SKIP = [
@@ -112,7 +117,7 @@
       document.querySelectorAll('[role="article"] div[dir="auto"], [role="article"] span[dir="auto"]')
     ).filter(el => {
       const text = el.innerText?.trim() ?? '';
-      if (text.length < 30) return false;
+      if (text.length < 15) return false;
       // Skip navigation / chrome UI inside articles
       if (el.closest('nav, [role="navigation"], [role="banner"]')) return false;
       return true;
@@ -129,7 +134,7 @@
         document.querySelectorAll('div[dir="auto"]')
       ).filter(el => {
         const text = el.innerText?.trim() ?? '';
-        return text.length >= 40 &&
+        return text.length >= 20 &&
           !el.closest('nav, header, footer, [role="navigation"], [role="banner"]');
       });
       candidates = candidates.filter(el =>
@@ -175,7 +180,22 @@
   const elData = collected;
 
   // ── Smooth sweep animation ──────────────────────────────────────
-  const pageH = Math.max(document.documentElement.scrollHeight, 1);
+  // On Facebook the page body doesn't scroll — the inner feed container does.
+  // Fall back to the inner scrollable div's scrollHeight so the sweep is meaningful.
+  function getPageHeight() {
+    const docH = document.documentElement.scrollHeight;
+    if (onFacebook && docH <= window.innerHeight + 50) {
+      // Find the tallest scrollable element (Facebook's feed container)
+      const candidates = document.querySelectorAll('[role="feed"], [role="main"], .x1vjfegm, [style*="overflow"]');
+      let best = docH;
+      for (const el of candidates) {
+        if (el.scrollHeight > best) best = el.scrollHeight;
+      }
+      return Math.max(best, window.innerHeight * 3); // at least 3 viewports for the sweep
+    }
+    return Math.max(docH, 1);
+  }
+  const pageH = getPageHeight();
   const SCAN_DURATION = 3000; // ms for full top→bottom sweep
   const SCAN_LINE_VH  = 0.35; // scan line stays at 35% of viewport height
   const savedScrollY  = window.scrollY;
@@ -196,7 +216,17 @@
 
     // Scroll so that scan line aligns with current scan position
     const targetScroll = Math.max(0, scanPageY - window.innerHeight * SCAN_LINE_VH);
-    window.scrollTo({ top: targetScroll, behavior: 'instant' });
+    if (onFacebook) {
+      // Facebook's feed is inside an inner scrollable container — try to scroll it
+      const fbScroll = document.querySelector('[role="feed"]')?.parentElement
+        ?? document.querySelector('[role="main"]')
+        ?? null;
+      if (fbScroll && fbScroll.scrollHeight > window.innerHeight) {
+        fbScroll.scrollTo({ top: targetScroll, behavior: 'instant' });
+      }
+    } else {
+      window.scrollTo({ top: targetScroll, behavior: 'instant' });
+    }
 
     badgeText.textContent = `🔍 ${Math.round(t * 100)}%`;
 
@@ -244,12 +274,12 @@
       } catch (_) { /* ignore */ }
 
       // Restore scroll position, fade out overlay & badge
-      window.scrollTo({ top: savedScrollY, behavior: 'smooth' });
+      if (!onFacebook) window.scrollTo({ top: savedScrollY, behavior: 'smooth' });
       setTimeout(() => {
         overlay.style.opacity = '0';
         badge.style.opacity   = '0';
         setTimeout(() => {
-          overlay.remove();
+          overlay.remove(); // removes from wherever it was appended
           badge.remove();
           style.remove();
           elData.forEach(d => d.el.classList.remove('__ta_scanned', '__ta_done'));

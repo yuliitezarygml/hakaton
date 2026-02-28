@@ -1,0 +1,188 @@
+{
+    "lang_code": "ro",
+    "lang_name": "Română",
+    
+    "nav": {
+        "home": "Acasă",
+        "methodologies": "Metodologii",
+        "about": "Despre noi",
+        "history": "Istoric"
+    },
+    
+    "footer": {
+        "copyright": "© 2026 Mitsuhano & yuliitezary. Toate drepturile rezervate.",
+        "warning": "Fiți precauți cu știrile importante — verificați faptele înainte de a crede sau distribui pentru a nu fi induși în eroare!",
+        "email": "mitsuhanocreations@gmail.com",
+        "phone": "+373 606 51 084"
+    },
+    
+    "home": {
+        "title": "Acasă",
+        "slider": {
+            "card1": {
+                "title": "Biblioteca Factchecker",
+                "text": "Aici veți găsi materiale de instruire privind metodologia de căutare și verificare a informațiilor, precum și articole originale, interviuri și ghiduri. Textele disponibile gratuit pot fi descărcate pentru studiu chiar aici, iar în unele cazuri oferim linkuri către biblioteci online unde puteți achiziționa ediții digitale.",
+                "button": "Găsește Adevărul"
+            },
+            "card2": {
+                "title": "A. Gorokhovsky. Verificarea faptelor ca trend în jurnalismul de investigație",
+                "text": "Alexander Gorokhovsky, jurnalist din Kiev, fondator și redactor-șef al proiectului Bez Brekhni, rezumă metodele de bază pentru verificarea informațiilor pentru toți verificatorii de fapte în ghidul său metodologic.",
+                "button": "Învață să gândești ca un verificator de fapte"
+            },
+            "card3": {
+                "title": "Motoare de căutare programabile: cum să îmbunătățești căutarea pe Google",
+                "text": "Chiar dacă munca ta nu implică căutarea și verificarea informațiilor, probabil ai observat că rezultatele căutărilor pe motoarele de căutare majore devin din ce în ce mai nesatisfăcătoare. Din păcate, aceasta este într-adevăr situația.",
+                "button": "Îmbunătățește calitatea căutărilor Google"
+            }
+        },
+        "mini_blocks": {
+            "block1": {
+                "title": "Bookmarklet-uri pentru OSINT: ce sunt și cum să le folosești",
+                "text": "În ultimul an, bookmarklet-urile pentru OSINT au devenit populare printre entuziaști...",
+                "tags": ["VERIFICARE FOTO", "METODOLOGIE"]
+            },
+            "block2": {
+                "title": "Ghid pentru bife: cum să recunoști un cont verificat pe rețelele sociale și să eviți greșelile",
+                "text": "Cu doar câțiva ani în urmă, bifa albastră era o dovadă incontestabilă că te uitai la...",
+                "tags": ["METODOLOGIE"]
+            },
+            "block3": {
+                "title": "War of Words — un instrument pentru analiza propagandei rusești",
+                "text": "Când informația devine o armă la fel de periculoasă ca artileria, este critic...",
+                "tags": ["SERVICII", "REȚELE N."]
+            },
+            "block4": {
+                "title": "Cum să elimini răspunsurile AI din rezultatele căutării Google",
+                "text": "Odată cu apariția răspunsurilor AI (AI Overview) în rezultatele căutării Google, și fără asta...",
+                "tags": ["METODOLOGIE", "SERVICII"]
+            }
+        }
+    },
+    
+    "api": {
+        "title": "Instrumentul nostru te va ajuta să afli adevărul!",
+        "description": "Aici poți evalua obiectiv fiabilitatea unui anumit articol sau știre. AI va analiza o serie de factori pentru a te ajuta să îți formezi o opinie corectă despre o anumită știre.",
+        "placeholder": "Introdu URL-ul articolului sau știrii pe care vrei să o verifici.",
+        "button": "Analizează",
+        "extension": {
+            "title": "Poți folosi și extensia noastră!",
+            "description": "Am creat o extensie specială cu funcționalitate pentru a verifica site-ul web pe care îl vizitezi. Asigură-ți securitatea informațională cu Fact Guard.",
+            "button": "Încearcă Extensia"
+        },
+        "feedback": {
+            "text": "Dacă ai feedback, poți lăsa o recenzie pe canalul nostru de Telegram.",
+            "button": "Recenzii"
+        }
+    },
+    
+    "api_response": {
+        "waiting": "Se așteaptă analiza...",
+        "waiting_start": "Se așteaptă începerea analizei...",
+        "waiting_results": "Se așteaptă rezultatele analizei...",
+        "summary": "Rezumat",
+        "manipulations": "Manipulări",
+        "logical_issues": "Probleme Logice",
+        "missing_evidence": "Dovezi Lipsă",
+        "verified_facts": "Fapte Verificate",
+        "opinions_as_facts": "Opinii Prezentate ca Fapte",
+        "sources": "Surse",
+        "reasoning": "Raționament",
+        "new_check": "Verificare Nouă",
+        "check_complete": "Verificare completă!"
+    },
+    
+    "stream_logs": {
+        "start": "🚀 Încep verificarea...",
+        "loading_page": "🌐 Se încarcă pagina...",
+        "page_loaded": "✓ Pagina încărcată, citesc conținutul...",
+        "analyzing": "🔬 Încep analiza conținutului...",
+        "reading_text": "📄 Citesc textul...",
+        "searching_facts": "🔍 Caut fapte despre subiect...",
+        "found_context": "✓ Am găsit context suplimentar din web",
+        "analyzing_manipulations": "🧠 Analizez textul pentru manipulări și dezinformare...",
+        "checking_sources": "⏳ Verific sursele, logica și faptele...",
+        "processing": "📊 Procesez rezultatul...",
+        "tokens_used": "📊 Token-uri folosite:",
+        "credibility": "📊 Credibilitate:",
+        "content_credible": "🟢 Conținutul pare credibil",
+        "content_suspicious": "🟡 Conținutul ridică îndoieli",
+        "content_fake": "🔴 Conținutul pare nefiabil",
+        "done": "✅ Gata!"
+    },
+    
+    "about": {
+        "title": "Despre noi",
+        "project_title": "Despre proiectul Fact Guard",
+        "who_we_are": "Cine suntem?",
+        "who_we_are_text": "Fact Guard este un proiect dedicat combaterii dezinformării și îmbunătățirii alfabetizării mediatice. Credem că într-o eră a zgomotului informațional, toată lumea ar trebui să poată verifica faptele și să gândească critic despre informațiile pe care le primește.",
+        "mission": "Misiunea noastră",
+        "mission_text": "Să oferim instrumente și cunoștințe accesibile pentru identificarea fake-urilor, verificarea surselor și dezvoltarea abilităților de gândire critică.",
+        "what_we_offer": "Ce oferim?",
+        "features": {
+            "tool": {
+                "title": "Instrument Puternic",
+                "text": "— cu care poți obține cercetări aprofundate în timp și efort minim, cu exemple de surse și evaluare obiectivă a agentului AI"
+            },
+            "library": {
+                "title": "Bibliotecă de Articole",
+                "text": "— materiale detaliate despre verificarea informațiilor"
+            },
+            "tips": {
+                "title": "Sfaturi Practice",
+                "text": "— cum să recunoști dezinformarea în viața reală"
+            },
+            "analysis": {
+                "title": "Analiza Surselor",
+                "text": "— metode pentru verificarea fiabilității surselor de informații"
+            }
+        },
+        "contacts": "Contacte:",
+        "feedback_label": "Feedback și sugestii:",
+        "support_label": "Suport tehnic și cooperare:"
+    },
+    
+    "library": {
+        "title": "Metodologii",
+        "page_title": "Bibliotecă de Articole",
+        "subtitle": "Învață bazele verificării informațiilor și combaterii dezinformării",
+        "read_more": "Citește mai mult →",
+        "article_photo": "Fotografie articol"
+    },
+    
+    "error_404": {
+        "title": "Pagina Nu a Fost Găsită",
+        "heading": "Articolul Nu a Fost Găsit",
+        "text": "Din păcate, articolul solicitat nu este disponibil.",
+        "button": "Înapoi la Bibliotecă"
+    },
+    
+    "verdicts": {
+        "true": "ADEVĂRAT",
+        "mostly_true": "MAJORITAR ADEVĂRAT",
+        "partially_true": "PARȚIAL ADEVĂRAT",
+        "mostly_false": "MAJORITAR FALS",
+        "false": "FALS",
+        "unverifiable": "NEVERIFICABIL"
+    },
+
+    "history": {
+        "title": "Istoricul Cererilor",
+        "total": "Total",
+        "avg_score": "Scor Mediu",
+        "real": "Real",
+        "fake": "Fals",
+        "loading": "Se încarcă...",
+        "no_requests": "Nu există cereri încă",
+        "error": "Nu s-a putut încărca istoricul",
+        "retry": "Reîncearcă",
+        "verdict": "Verdict",
+        "reliable": "De încredere",
+        "doubtful": "Îndoielnic",
+        "unreliable": "Nefiabil",
+        "no_url": "URL neprecizat",
+        "just_now": "Chiar acum",
+        "minutes_ago": "min în urmă",
+        "hours_ago": "h în urmă",
+        "days_ago": "z în urmă"
+    }
+}

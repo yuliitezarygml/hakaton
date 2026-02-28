@@ -24,6 +24,7 @@ type AnalysisResult struct {
 	FactCheck        *struct {
 		MissingEvidence []string `json:"missing_evidence"`
 		OpinionsAsFacts []string `json:"opinions_as_facts"`
+		FoundEvidence   []string `json:"found_evidence"`
 	} `json:"fact_check"`
 }
 

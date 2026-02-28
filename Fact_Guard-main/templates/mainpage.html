@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Home{% endblock %}
+{% block title %}{{ i18n.home.title | default('Home') }}{% endblock %}
 
 {% block content %}
 {% if api_post %}
@@ -10,26 +10,26 @@
         <div class="slider">
             <div class="slider-container">
                 <div class="card">
-                    <h2>Factchecker Library</h2>
-                    <p>Here you will find training materials on information search and verification methodology, as well as original articles, interviews, and guides. <br><br> The freely available texts can be downloaded for study right here, and in some cases we provide links to online libraries where you can purchase digital editions.</p>
+                    <h2>{{ i18n.home.slider.card1.title | default('Factchecker Library') }}</h2>
+                    <p>{{ i18n.home.slider.card1.text | default('Here you will find training materials on information search and verification methodology, as well as original articles, interviews, and guides.') }}</p>
                     <button class="find-truth-btn">
-                        Find The Truth
+                        {{ i18n.home.slider.card1.button | default('Find The Truth') }}
                         <img src="static/icons/arrow-right.svg" alt="arrow" class="arrow-icon">
                     </button>
                 </div>
                 <div class="card">
-                    <h2>A. Gorokhovsky. Fact-checking as a trend in investigative journalism</h2>
-                    <p>Alexander Gorokhovsky, a Kyiv-based journalist and founder and editor-in-chief of the Bez Brekhni project, summarizes the basic methods of verifying information for all fact-checkers in his methodological guide.</p>
+                    <h2>{{ i18n.home.slider.card2.title | default('A. Gorokhovsky. Fact-checking as a trend in investigative journalism') }}</h2>
+                    <p>{{ i18n.home.slider.card2.text | default('Alexander Gorokhovsky summarizes the basic methods of verifying information for all fact-checkers in his methodological guide.') }}</p>
                     <button class="find-truth-btn">
-                        Learn to think like a fact checker
+                        {{ i18n.home.slider.card2.button | default('Learn to think like a fact checker') }}
                         <img src="static/icons/arrow-right.svg" alt="arrow" class="arrow-icon">
                     </button>
                 </div>
                 <div class="card">
-                    <h2>Programmable search engines: how to improve Google search</h2>
-                    <p>Even if your work does not involve searching for and verifying information, you have probably noticed that search results on major search engines are becoming less and less satisfactory. Unfortunately, this is indeed the case.</p>
+                    <h2>{{ i18n.home.slider.card3.title | default('Programmable search engines: how to improve Google search') }}</h2>
+                    <p>{{ i18n.home.slider.card3.text | default('Even if your work does not involve searching for and verifying information, you have probably noticed that search results on major search engines are becoming less and less satisfactory.') }}</p>
                     <button class="find-truth-btn">
-                        Improve the quality of Google searches
+                        {{ i18n.home.slider.card3.button | default('Improve the quality of Google searches') }}
                         <img src="static/icons/arrow-right.svg" alt="arrow" class="arrow-icon">
                     </button>
                 </div>
@@ -54,25 +54,28 @@
                     <!-- Block 1 -->
                     <div class="mini-block">
                         <div class="mini-block-top" style="background-image: url('static/img/mini-ads1.png');">
-                            <span>Bookmarklets for OSINT: what they are and how to use them</span>
+                            <span>{{ i18n.home.mini_blocks.block1.title | default('Bookmarklets for OSINT: what they are and how to use them') }}</span>
                         </div>
                         <div class="mini-block-bottom">
-                            <span>Over the past year, bookmarklets for OSINT have become popular among enthusiasts...</span>
+                            <span>{{ i18n.home.mini_blocks.block1.text | default('Over the past year, bookmarklets for OSINT have become popular among enthusiasts...') }}</span>
                             <div class="mini-block-btns">
-                                <button>PHOTO CHECK</button>
-                                <button>METHODOLOGY</button>
+                                {% for tag in i18n.home.mini_blocks.block1.tags | default(['PHOTO CHECK', 'METHODOLOGY']) %}
+                                <button>{{ tag }}</button>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
                     <!-- Block 2 -->
                     <div class="mini-block">
                         <div class="mini-block-top" style="background-image: url('static/img/mini-ads2.png');">
-                            <span>Guide to check marks: how to recognize a verified account on social media and avoid mistakes</span>
+                            <span>{{ i18n.home.mini_blocks.block2.title | default('Guide to check marks: how to recognize a verified account on social media and avoid mistakes') }}</span>
                         </div>
                         <div class="mini-block-bottom">
-                            <span>Just a few years ago, the blue check mark was unequivocal proof that you were looking at...</span>
+                            <span>{{ i18n.home.mini_blocks.block2.text | default('Just a few years ago, the blue check mark was unequivocal proof that you were looking at...') }}</span>
                             <div class="mini-block-btns">
-                                <button>METHODOLOGY</button>
+                                {% for tag in i18n.home.mini_blocks.block2.tags | default(['METHODOLOGY']) %}
+                                <button>{{ tag }}</button>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
@@ -81,26 +84,28 @@
                     <!-- Block 3 -->
                     <div class="mini-block">
                         <div class="mini-block-top" style="background-image: url('static/img/mini-ads3.png');">
-                            <span>War of Words — a tool for analyzing Russian propaganda</span>
+                            <span>{{ i18n.home.mini_blocks.block3.title | default('War of Words — a tool for analyzing Russian propaganda') }}</span>
                         </div>
                         <div class="mini-block-bottom">
-                            <span>When information becomes a weapon as dangerous as artillery, it is critical...</span>
+                            <span>{{ i18n.home.mini_blocks.block3.text | default('When information becomes a weapon as dangerous as artillery, it is critical...') }}</span>
                             <div class="mini-block-btns">
-                                <button>SERVICES</button>
-                                <button>N. NETWORKS</button>
+                                {% for tag in i18n.home.mini_blocks.block3.tags | default(['SERVICES', 'N. NETWORKS']) %}
+                                <button>{{ tag }}</button>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
                     <!-- Block 4 -->
                     <div class="mini-block">
                         <div class="mini-block-top" style="background-image: url('static/img/mini-ads4.png');">
-                            <span>How to remove AI responses from Google search results</span>
+                            <span>{{ i18n.home.mini_blocks.block4.title | default('How to remove AI responses from Google search results') }}</span>
                         </div>
                         <div class="mini-block-bottom">
-                            <span>With the appearance of AI responses (AI Overview) in Google search results, and without that...</span>
+                            <span>{{ i18n.home.mini_blocks.block4.text | default('With the appearance of AI responses (AI Overview) in Google search results, and without that...') }}</span>
                             <div class="mini-block-btns">
-                                <button>METHODOLOGY</button>
-                                <button>SERVICES</button>
+                                {% for tag in i18n.home.mini_blocks.block4.tags | default(['METHODOLOGY', 'SERVICES']) %}
+                                <button>{{ tag }}</button>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>

@@ -1,0 +1,188 @@
+{
+    "lang_code": "en",
+    "lang_name": "English",
+    
+    "nav": {
+        "home": "Home",
+        "methodologies": "Methodologies",
+        "about": "About Us",
+        "history": "History"
+    },
+    
+    "footer": {
+        "copyright": "© 2026 Mitsuhano & yuliitezary. All rights reserved.",
+        "warning": "Be cautious with major news stories — verify facts before believing or sharing so you don't get misled!",
+        "email": "mitsuhanocreations@gmail.com",
+        "phone": "+373 606 51 084"
+    },
+    
+    "home": {
+        "title": "Home",
+        "slider": {
+            "card1": {
+                "title": "Factchecker Library",
+                "text": "Here you will find training materials on information search and verification methodology, as well as original articles, interviews, and guides. The freely available texts can be downloaded for study right here, and in some cases we provide links to online libraries where you can purchase digital editions.",
+                "button": "Find The Truth"
+            },
+            "card2": {
+                "title": "A. Gorokhovsky. Fact-checking as a trend in investigative journalism",
+                "text": "Alexander Gorokhovsky, a Kyiv-based journalist and founder and editor-in-chief of the Bez Brekhni project, summarizes the basic methods of verifying information for all fact-checkers in his methodological guide.",
+                "button": "Learn to think like a fact checker"
+            },
+            "card3": {
+                "title": "Programmable search engines: how to improve Google search",
+                "text": "Even if your work does not involve searching for and verifying information, you have probably noticed that search results on major search engines are becoming less and less satisfactory. Unfortunately, this is indeed the case.",
+                "button": "Improve the quality of Google searches"
+            }
+        },
+        "mini_blocks": {
+            "block1": {
+                "title": "Bookmarklets for OSINT: what they are and how to use them",
+                "text": "Over the past year, bookmarklets for OSINT have become popular among enthusiasts...",
+                "tags": ["PHOTO CHECK", "METHODOLOGY"]
+            },
+            "block2": {
+                "title": "Guide to check marks: how to recognize a verified account on social media and avoid mistakes",
+                "text": "Just a few years ago, the blue check mark was unequivocal proof that you were looking at...",
+                "tags": ["METHODOLOGY"]
+            },
+            "block3": {
+                "title": "War of Words — a tool for analyzing Russian propaganda",
+                "text": "When information becomes a weapon as dangerous as artillery, it is critical...",
+                "tags": ["SERVICES", "N. NETWORKS"]
+            },
+            "block4": {
+                "title": "How to remove AI responses from Google search results",
+                "text": "With the appearance of AI responses (AI Overview) in Google search results, and without that...",
+                "tags": ["METHODOLOGY", "SERVICES"]
+            }
+        }
+    },
+    
+    "api": {
+        "title": "Our tool will help you find out the truth!",
+        "description": "Here you can objectively assess the reliability of a particular article or news item. AI will analyze a range of factors to help you form an accurate opinion about a particular news item.",
+        "placeholder": "Enter the URL of the article or news item you want to check.",
+        "button": "Analyze",
+        "extension": {
+            "title": "You can also use our extension!",
+            "description": "We have created a special extension with functionality to check the website you are visiting. Ensure your information security with Fact Guard.",
+            "button": "Try Extension"
+        },
+        "feedback": {
+            "text": "If you have any feedback you can leave a review on our Telegram channel.",
+            "button": "Reviews"
+        }
+    },
+    
+    "api_response": {
+        "waiting": "Waiting for analysis...",
+        "waiting_start": "Waiting for analysis to start...",
+        "waiting_results": "Waiting for analysis results...",
+        "summary": "Summary",
+        "manipulations": "Manipulations",
+        "logical_issues": "Logical Issues",
+        "missing_evidence": "Missing Evidence",
+        "verified_facts": "Verified Facts",
+        "opinions_as_facts": "Opinions Presented as Facts",
+        "sources": "Sources",
+        "reasoning": "Reasoning",
+        "new_check": "New Check",
+        "check_complete": "Check complete!"
+    },
+    
+    "stream_logs": {
+        "start": "🚀 Starting verification...",
+        "loading_page": "🌐 Loading page...",
+        "page_loaded": "✓ Page loaded, reading content...",
+        "analyzing": "🔬 Starting content analysis...",
+        "reading_text": "📄 Reading text...",
+        "searching_facts": "🔍 Searching for facts on the topic...",
+        "found_context": "✓ Found additional context from the web",
+        "analyzing_manipulations": "🧠 Analyzing text for manipulations and disinformation...",
+        "checking_sources": "⏳ Checking sources, logic and facts...",
+        "processing": "📊 Processing result...",
+        "tokens_used": "📊 Tokens used:",
+        "credibility": "📊 Credibility:",
+        "content_credible": "🟢 Content appears credible",
+        "content_suspicious": "🟡 Content raises doubts",
+        "content_fake": "🔴 Content appears unreliable",
+        "done": "✅ Done!"
+    },
+    
+    "about": {
+        "title": "About Us",
+        "project_title": "About the Fact Guard Project",
+        "who_we_are": "Who are we?",
+        "who_we_are_text": "Fact Guard is a project dedicated to combating disinformation and improving media literacy. We believe that in an era of information noise, everyone should be able to verify facts and think critically about the information they receive.",
+        "mission": "Our Mission",
+        "mission_text": "To provide accessible tools and knowledge for identifying fakes, verifying sources, and developing critical thinking skills.",
+        "what_we_offer": "What do we offer?",
+        "features": {
+            "tool": {
+                "title": "Powerful Tool",
+                "text": "— with which you can get deep research in minimal time and effort with source examples and objective AI agent assessment"
+            },
+            "library": {
+                "title": "Article Library",
+                "text": "— detailed materials on information verification"
+            },
+            "tips": {
+                "title": "Practical Tips",
+                "text": "— how to recognize disinformation in real life"
+            },
+            "analysis": {
+                "title": "Source Analysis",
+                "text": "— methods for verifying the reliability of information sources"
+            }
+        },
+        "contacts": "Contacts:",
+        "feedback_label": "Feedback and suggestions:",
+        "support_label": "Technical support and cooperation:"
+    },
+    
+    "library": {
+        "title": "Methodologies",
+        "page_title": "Article Library",
+        "subtitle": "Learn the basics of information verification and combating disinformation",
+        "read_more": "Read more →",
+        "article_photo": "Article photo"
+    },
+    
+    "error_404": {
+        "title": "Page Not Found",
+        "heading": "Article Not Found",
+        "text": "Unfortunately, the requested article is unavailable.",
+        "button": "Return to Library"
+    },
+    
+    "verdicts": {
+        "true": "TRUE",
+        "mostly_true": "MOSTLY TRUE",
+        "partially_true": "PARTIALLY TRUE",
+        "mostly_false": "MOSTLY FALSE",
+        "false": "FALSE",
+        "unverifiable": "UNVERIFIABLE"
+    },
+
+    "history": {
+        "title": "Request History",
+        "total": "Total",
+        "avg_score": "Avg Score",
+        "real": "Real",
+        "fake": "Fake",
+        "loading": "Loading...",
+        "no_requests": "No requests yet",
+        "error": "Failed to load history",
+        "retry": "Retry",
+        "verdict": "Verdict",
+        "reliable": "Reliable",
+        "doubtful": "Doubtful",
+        "unreliable": "Unreliable",
+        "no_url": "No URL provided",
+        "just_now": "Just now",
+        "minutes_ago": "m ago",
+        "hours_ago": "h ago",
+        "days_ago": "d ago"
+    }
+}

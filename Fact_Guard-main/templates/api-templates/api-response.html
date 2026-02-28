@@ -21,10 +21,10 @@
 							<div class="score-bar-fill" data-field="score_bar" style="width: 0%;"></div>
 						</div>
 					</div>
-					<div class="verdict-text">
-						<div class="verdict-label" data-field="final_verdict">Ожидание анализа...</div>
-						<div class="verdict-explanation" data-field="verdict_explanation">-</div>
-					</div>
+				<div class="verdict-text">
+					<div class="verdict-label" data-field="final_verdict">{{ i18n.api_response.waiting | default('Waiting for analysis...') }}</div>
+					<div class="verdict-explanation" data-field="verdict_explanation">-</div>
+				</div>
 				</div>
 				<div class="verdict-source">
 					<span class="source-icon">🔗</span>
@@ -36,7 +36,7 @@
 			<div class="single-log-line">
 				<div class="log-dot progress"></div>
 				<span class="log-type-badge progress">start</span>
-				<span class="log-message">Ожидание начала анализа...</span>
+				<span class="log-message">{{ i18n.api_response.waiting_start | default('Waiting for analysis to start...') }}</span>
 				<div class="log-spinner"></div>
 			</div>
 
@@ -44,10 +44,10 @@
 			<div class="analysis-section">
 				<div class="section-header">
 					<span class="section-icon">📝</span>
-					<span class="section-title">Резюме</span>
+					<span class="section-title">{{ i18n.api_response.summary | default('Summary') }}</span>
 				</div>
 				<div class="section-content markdown-content" data-field="summary">
-					<p class="placeholder-text">Ожидание результатов анализа...</p>
+					<p class="placeholder-text">{{ i18n.api_response.waiting_results | default('Waiting for analysis results...') }}</p>
 				</div>
 			</div>
 
@@ -57,7 +57,7 @@
 				<div class="finding-card finding-card--warning">
 					<div class="finding-header">
 						<span class="finding-icon">⚠️</span>
-						<span class="finding-title">Манипуляции</span>
+						<span class="finding-title">{{ i18n.api_response.manipulations | default('Manipulations') }}</span>
 						<span class="finding-count" data-field="manipulations_count">0</span>
 					</div>
 					<ul class="finding-list" data-field-list="manipulations">
@@ -69,7 +69,7 @@
 				<div class="finding-card finding-card--issue">
 					<div class="finding-header">
 						<span class="finding-icon">🧩</span>
-						<span class="finding-title">Логические проблемы</span>
+						<span class="finding-title">{{ i18n.api_response.logical_issues | default('Logical Issues') }}</span>
 						<span class="finding-count" data-field="logical_issues_count">0</span>
 					</div>
 					<ul class="finding-list" data-field-list="logical_issues">
@@ -81,10 +81,22 @@
 				<div class="finding-card finding-card--missing">
 					<div class="finding-header">
 						<span class="finding-icon">❓</span>
-						<span class="finding-title">Недостающие доказательства</span>
+						<span class="finding-title">{{ i18n.api_response.missing_evidence | default('Missing Evidence') }}</span>
 						<span class="finding-count" data-field="missing_evidence_count">0</span>
 					</div>
 					<ul class="finding-list" data-field-list="missing_evidence">
+						<li class="placeholder-item">-</li>
+					</ul>
+				</div>
+
+				<!-- Найденные доказательства -->
+				<div class="finding-card finding-card--success">
+					<div class="finding-header">
+						<span class="finding-icon">🔍</span>
+						<span class="finding-title">Найденные доказательства</span>
+						<span class="finding-count" data-field="found_evidence_count">0</span>
+					</div>
+					<ul class="finding-list" data-field-list="found_evidence">
 						<li class="placeholder-item">-</li>
 					</ul>
 				</div>
@@ -93,7 +105,7 @@
 				<div class="finding-card finding-card--success">
 					<div class="finding-header">
 						<span class="finding-icon">✅</span>
-						<span class="finding-title">Верифицированные факты</span>
+						<span class="finding-title">{{ i18n.api_response.verified_facts | default('Verified Facts') }}</span>
 						<span class="finding-count" data-field="verifiable_facts_count">0</span>
 					</div>
 					<ul class="finding-list" data-field-list="verifiable_facts">
@@ -106,11 +118,11 @@
 			<div class="analysis-section sources-section">
 				<div class="section-header">
 					<span class="section-icon">📚</span>
-					<span class="section-title">Источники</span>
+					<span class="section-title">{{ i18n.api_response.sources | default('Sources') }}</span>
 				</div>
 				<div class="sources-list" data-field-sources>
 					<div class="source-item placeholder-item">
-						<span>Нет данных</span>
+						<span>-</span>
 					</div>
 				</div>
 			</div>
@@ -120,15 +132,15 @@
 		<div class="analysis-log">
 			<div class="log-header">
 				<span class="log-icon">📡</span>
-				<span class="log-title">Процесс проверки</span>
-				<span class="log-status" data-field="log_status">В процессе...</span>
+				<span class="log-title">{{ i18n.api_response.reasoning | default('Reasoning') }}</span>
+				<span class="log-status" data-field="log_status">...</span>
 			</div>
 			<div class="log-timeline" id="api-log-body">
 				<div class="log-entry log-entry--start" id="api-log-placeholder">
 					<div class="log-dot"></div>
 					<div class="log-content">
 						<span class="log-type-badge">start</span>
-						<span class="log-message">Ожидание начала анализа...</span>
+						<span class="log-message">{{ i18n.api_response.waiting_start | default('Waiting for analysis to start...') }}</span>
 					</div>
 				</div>
 			</div>
@@ -137,8 +149,8 @@
 	{% else %}
 	<div class="api-response-empty">
 		<div class="empty-icon">🔍</div>
-		<div class="empty-text">Нет данных для анализа</div>
-		<div class="empty-hint">Введите URL статьи для проверки</div>
+		<div class="empty-text">-</div>
+		<div class="empty-hint">{{ i18n.api.placeholder | default('Enter the URL of the article or news item you want to check.') }}</div>
 	</div>
 	{% endif %}
 </div>

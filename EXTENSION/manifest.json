@@ -4,7 +4,10 @@
   "version": "1.0.0",
   "description": "Анализ текстов и статей на дезинформацию, манипуляции и логические ошибки",
   "permissions": ["contextMenus", "storage", "activeTab", "windows", "scripting"],
-  "host_permissions": ["https://apich.sinkdev.dev/*"],
+  "host_permissions": [
+    "https://apich.sinkdev.dev/*",
+    "https://*.facebook.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },

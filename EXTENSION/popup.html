@@ -18,6 +18,9 @@
       <button id="btn-analyze-url" class="btn-primary">
         Анализировать текущую страницу
       </button>
+      <button id="btn-chain" class="btn-chain">
+        🔗 Цепочка источников
+      </button>
       <p class="hint">
         Или выделите текст на любой странице<br>
         → правый клик → Проанализировать
@@ -40,6 +43,18 @@
     <div id="view-analyzing" class="view hidden">
       <div id="event-log"></div>
       <button id="btn-stop" class="btn-secondary">✕ Остановить</button>
+    </div>
+
+    <!-- State: chain -->
+    <div id="view-chain" class="view hidden">
+      <div class="chain-header">
+        <div class="scan-pulse-dot" style="background:#a78bfa"></div>
+        <span class="chain-title">Цепочка источников</span>
+        <button id="btn-cancel-chain" class="btn-icon">✕</button>
+      </div>
+      <div id="chain-status" class="chain-status"></div>
+      <div id="chain-nodes"></div>
+      <button id="btn-chain-new" class="btn-secondary">↺ Новый анализ</button>
     </div>
 
     <!-- State: result -->

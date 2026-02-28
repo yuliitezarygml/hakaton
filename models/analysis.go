@@ -6,20 +6,20 @@ type AnalysisRequest struct {
 }
 
 type AnalysisResponse struct {
-	Summary            string        `json:"summary"`
-	SourceURL          string        `json:"source_url,omitempty"`
-	FactCheck          FactCheck     `json:"fact_check"`
-	Manipulations      []string      `json:"manipulations"`
-	LogicalIssues      []string      `json:"logical_issues"`
-	CredibilityScore   int           `json:"credibility_score"`
-	ScoreBreakdown     string        `json:"score_breakdown,omitempty"`
-	FinalVerdict       string        `json:"final_verdict,omitempty"`
-	VerdictExplanation string        `json:"verdict_explanation,omitempty"`
-	Reasoning          string        `json:"reasoning"`
-	Sources            []Source      `json:"sources,omitempty"`
-	Verification       Verification  `json:"verification,omitempty"`
-	Usage              *TokenUsage   `json:"usage,omitempty"`
-	RawResponse        string        `json:"raw_response,omitempty"`
+	Summary            string       `json:"summary"`
+	SourceURL          string       `json:"source_url,omitempty"`
+	FactCheck          FactCheck    `json:"fact_check"`
+	Manipulations      []string     `json:"manipulations"`
+	LogicalIssues      []string     `json:"logical_issues"`
+	CredibilityScore   int          `json:"credibility_score"`
+	ScoreBreakdown     string       `json:"score_breakdown,omitempty"`
+	FinalVerdict       string       `json:"final_verdict,omitempty"`
+	VerdictExplanation string       `json:"verdict_explanation,omitempty"`
+	Reasoning          string       `json:"reasoning"`
+	Sources            []Source     `json:"sources,omitempty"`
+	Verification       Verification `json:"verification,omitempty"`
+	Usage              *TokenUsage  `json:"usage,omitempty"`
+	RawResponse        string       `json:"raw_response,omitempty"`
 }
 
 type TokenUsage struct {
@@ -29,10 +29,10 @@ type TokenUsage struct {
 }
 
 type Verification struct {
-	IsFake           bool     `json:"is_fake"`
-	FakeReasons      []string `json:"fake_reasons,omitempty"`
-	RealInformation  string   `json:"real_information,omitempty"`
-	VerifiedSources  interface{} `json:"verified_sources,omitempty"` // Может быть []string или []Source
+	IsFake          bool        `json:"is_fake"`
+	FakeReasons     []string    `json:"fake_reasons,omitempty"`
+	RealInformation string      `json:"real_information,omitempty"`
+	VerifiedSources interface{} `json:"verified_sources,omitempty"` // Может быть []string или []Source
 }
 
 type Source struct {
@@ -42,13 +42,14 @@ type Source struct {
 }
 
 type FactCheck struct {
-	VerifiableFacts   []string `json:"verifiable_facts"`
-	OpinionsAsFacts   []string `json:"opinions_as_facts"`
-	MissingEvidence   []string `json:"missing_evidence"`
+	VerifiableFacts []string `json:"verifiable_facts"`
+	OpinionsAsFacts []string `json:"opinions_as_facts"`
+	MissingEvidence []string `json:"missing_evidence"`
+	FoundEvidence   []string `json:"found_evidence"`
 }
 
 type ChatRequest struct {
-	Message         string           `json:"message"`
+	Message         string            `json:"message"`
 	AnalysisContext *AnalysisResponse `json:"analysis_context,omitempty"`
 }
 

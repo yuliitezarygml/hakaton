@@ -391,6 +391,79 @@
             font-weight: 600;
         }
 
+        /* ── Evidence ── */
+        .evidence-grid { display: flex; flex-direction: column; gap: .55rem; padding: .85rem 1.5rem 1.2rem; }
+        .ev-block { border: 1px solid var(--border); background: var(--surface2); padding: .85rem 1.1rem; }
+        .ev-label {
+            font-size: .54rem;
+            font-weight: 600;
+            letter-spacing: .22em;
+            text-transform: uppercase;
+            color: #f97316;
+            margin-bottom: .45rem;
+        }
+        .ev-text {
+            font-size: .74rem;
+            color: var(--text-lo);
+            line-height: 1.75;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .ev-real {
+            border-left: 2px solid rgba(249,115,22,.3);
+            padding-left: .75rem;
+        }
+        .ev-reason {
+            font-size: .72rem;
+            color: #fb923c;
+            padding: .2rem 0;
+            line-height: 1.5;
+        }
+        .ev-reason::before { content: '⚠ '; }
+
+        /* ── Sources ── */
+        .source-item {
+            padding: .9rem 1.2rem;
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            margin-bottom: .45rem;
+            display: flex;
+            flex-direction: column;
+            gap: .35rem;
+        }
+        .source-domain {
+            font-size: .58rem;
+            font-weight: 600;
+            letter-spacing: .14em;
+            color: #38bdf8;
+            background: rgba(56,189,248,.07);
+            border: 1px solid rgba(56,189,248,.2);
+            padding: .15rem .55rem;
+            display: inline-block;
+            align-self: flex-start;
+        }
+        .source-title {
+            font-size: .78rem;
+            color: #7dd3fc;
+            text-decoration: none;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .source-title:hover { color: #38bdf8; text-decoration: underline; }
+        .source-evidence {
+            font-size: .7rem;
+            color: var(--text-lo);
+            line-height: 1.65;
+            padding-left: .75rem;
+            border-left: 2px solid rgba(56,189,248,.18);
+        }
+        .source-url {
+            font-size: .62rem;
+            color: #2a4a5e;
+            word-break: break-all;
+            font-family: var(--mono);
+        }
+
         /* ── Footer ── */
         .footer-bar {
             border: 1px solid var(--border);
@@ -515,6 +588,62 @@
             return items.map(t => `<span class="tag ${cls}">${esc(t)}</span>`).join('');
         }
 
+        function renderEvidence(d) {
+            const breakdown = (d.score_breakdown || '').trim();
+            const reasoning = (d.reasoning || '').trim();
+            const verdictEx = (d.verdict_explanation || '').trim();
+            const fakeReasons = d.verification?.fake_reasons || [];
+            const realInfo = (d.verification?.real_information || '').trim();
+
+            if (!breakdown && !reasoning && !verdictEx && !fakeReasons.length && !realInfo) return '';
+
+            let blocks = '';
+            if (breakdown) blocks += `<div class="ev-block"><div class="ev-label">Расчёт оценки</div><div class="ev-text">${esc(breakdown)}</div></div>`;
+            if (reasoning) blocks += `<div class="ev-block"><div class="ev-label">Обоснование</div><div class="ev-text">${esc(reasoning)}</div></div>`;
+            if (verdictEx)  blocks += `<div class="ev-block"><div class="ev-label">Вердикт</div><div class="ev-text">${esc(verdictEx)}</div></div>`;
+            if (fakeReasons.length) {
+                const items = fakeReasons.map(r => `<div class="ev-reason">${esc(r)}</div>`).join('');
+                blocks += `<div class="ev-block"><div class="ev-label">Признаки проблем</div>${items}</div>`;
+            }
+            if (realInfo) blocks += `<div class="ev-block"><div class="ev-label">Что нашли в сети</div><div class="ev-text ev-real">${esc(realInfo)}</div></div>`;
+
+            return `<div class="panel">
+                <div class="panel-hdr"><span class="panel-title">🔬 Доказательства</span></div>
+                <div class="evidence-grid">${blocks}</div>
+            </div>`;
+        }
+
+        function extractSources(d) {
+            const raw = d.verification?.verified_sources || d.sources || [];
+            if (!Array.isArray(raw)) return [];
+            return raw.map(s => {
+                if (typeof s === 'string') return { title: s, url: s, description: '' };
+                return { title: s.title || '', url: s.url || '', description: s.description || '' };
+            }).filter(s => { try { new URL(s.url); return true; } catch { return false; } });
+        }
+
+        function renderSources(d) {
+            const sources = extractSources(d);
+            if (!sources.length) return '';
+            const items = sources.map(s => {
+                let domain = '';
+                try { domain = new URL(s.url).hostname.replace(/^www\./, ''); } catch {}
+                return `<div class="source-item">
+                    ${domain ? `<span class="source-domain">${esc(domain)}</span>` : ''}
+                    <a class="source-title" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title || s.url)}</a>
+                    ${s.description ? `<div class="source-evidence">${esc(s.description)}</div>` : ''}
+                    <div class="source-url">${esc(s.url)}</div>
+                </div>`;
+            }).join('');
+            return `<div class="panel">
+                <div class="panel-hdr">
+                    <span class="panel-title">📎 Источники проверки</span>
+                    <span style="font-size:.58rem;color:var(--text-lo)">${sources.length} источник(ов)</span>
+                </div>
+                <div style="padding:.85rem 1.5rem">${items}</div>
+            </div>`;
+        }
+
         function render(d) {
             const s = d.credibility_score || 0;
             const color = scoreColor(s);
@@ -558,6 +687,20 @@
             </div>`;
             }
 
+            // Found evidence
+            let foundEvidenceHtml = '';
+            if (d.fact_check && d.fact_check.found_evidence && d.fact_check.found_evidence.length > 0) {
+                let tags = '';
+                d.fact_check.found_evidence.forEach(item => {
+                    tags += `<div class="tag" style="background:rgba(74, 222, 128, 0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.3)">${esc(item)}</div>`;
+                });
+                foundEvidenceHtml = `
+            <div class="panel">
+                <div class="panel-hdr"><span class="panel-title" style="color:#4ade80">✅ Найдены доказательства</span></div>
+                <div class="tag-list">${tags}</div>
+            </div>`;
+            }
+
             container.innerHTML = `
         <div class="result-header" style="--score-color:${color}">
             <div class="rh-top">
@@ -584,9 +727,12 @@
             ${breakdownHtml}
         </div>` : ''}
 
+        ${foundEvidenceHtml}
         ${manipHtml}
         ${logicHtml}
         ${missingHtml}
+        ${renderEvidence(d)}
+        ${renderSources(d)}
 
         <div class="footer-bar">
             <div class="footer-brand">Проверено <span>ANALYST</span> · Text Analyzer</div>

@@ -77,6 +77,12 @@ func FormatResult(r *AnalysisResult, sourceLabel string) string {
 
 	// Fact check
 	if r.FactCheck != nil {
+		if len(r.FactCheck.FoundEvidence) > 0 {
+			b.WriteString("\n✅ <b>Найдены доказательства:</b>\n")
+			for _, e := range r.FactCheck.FoundEvidence[:clamp(len(r.FactCheck.FoundEvidence), 3)] {
+				b.WriteString(fmt.Sprintf("• %s\n", escHTML(e)))
+			}
+		}
 		if len(r.FactCheck.MissingEvidence) > 0 {
 			b.WriteString("\n❓ <b>Без доказательств:</b>\n")
 			for _, e := range r.FactCheck.MissingEvidence[:clamp(len(r.FactCheck.MissingEvidence), 3)] {

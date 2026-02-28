@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -8,6 +8,47 @@ import os
 import time
 import json
 import httpx
+
+# Поддерживаемые языки
+SUPPORTED_LANGUAGES = ['ru', 'en', 'ro']
+DEFAULT_LANGUAGE = 'en'
+
+# Загрузка переводов
+def load_translations():
+    translations = {}
+    for lang in SUPPORTED_LANGUAGES:
+        try:
+            with open(f'locales/{lang}.json', 'r', encoding='utf-8') as f:
+                translations[lang] = json.load(f)
+        except FileNotFoundError:
+            print(f"Warning: Translation file for '{lang}' not found")
+            translations[lang] = {}
+    return translations
+
+TRANSLATIONS = load_translations()
+
+def get_translation(lang: str, key: str, default: str = None):
+    """Получить перевод по ключу (поддержка вложенных ключей через точку)"""
+    if lang not in TRANSLATIONS:
+        lang = DEFAULT_LANGUAGE
+    
+    keys = key.split('.')
+    value = TRANSLATIONS.get(lang, {})
+    
+    for k in keys:
+        if isinstance(value, dict):
+            value = value.get(k)
+        else:
+            return default or key
+    
+    return value if value is not None else (default or key)
+
+def get_lang_from_request(request: Request) -> str:
+    """Получить язык из cookie или использовать язык по умолчанию"""
+    lang = request.cookies.get('lang', DEFAULT_LANGUAGE)
+    if lang not in SUPPORTED_LANGUAGES:
+        lang = DEFAULT_LANGUAGE
+    return lang
 
 # Middleware для отключения кэширования
 class NoCacheMiddleware(BaseHTTPMiddleware):
@@ -34,6 +75,15 @@ if not Config.DEBUG:
 
 templates.env.globals["timestamp"] = lambda: int(time.time())
 
+# Добавляем функцию перевода в глобальные переменные шаблонов
+def t(key: str, lang: str = DEFAULT_LANGUAGE, default: str = None):
+    """Функция перевода для использования в шаблонах"""
+    return get_translation(lang, key, default)
+
+templates.env.globals["t"] = t
+templates.env.globals["SUPPORTED_LANGUAGES"] = SUPPORTED_LANGUAGES
+templates.env.globals["TRANSLATIONS"] = TRANSLATIONS
+
 # Фильтр для обрезки текста до N символов
 def truncate_text(text, length=250):
     if len(text) > length:
@@ -46,6 +96,8 @@ templates.env.filters["truncate"] = truncate_text
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 ANALYZE_STREAM_URL = os.getenv("ANALYZE_STREAM_URL", "https://apich.sinkdev.dev/api/analyze/stream")
+ADMIN_STATS_URL = os.getenv("ADMIN_STATS_URL", "https://apich.sinkdev.dev/api/admin/stats")
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "admin_secret_123")
 
 FAKE_API_RESULT = {
         "result": "ok",
@@ -208,9 +260,33 @@ async def analyze_stream(url: str):
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+# --- API endpoint for history stats (proxy) ---
+@app.get("/api/history/stats")
+async def history_stats():
+    """Прокси-эндпоинт для получения статистики истории запросов"""
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                ADMIN_STATS_URL,
+                headers={"X-Admin-Token": ADMIN_TOKEN}
+            )
+            response.raise_for_status()
+            return JSONResponse(response.json())
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            {"error": "api_error", "status": exc.response.status_code},
+            status_code=exc.response.status_code
+        )
+    except Exception as exc:
+        return JSONResponse(
+            {"error": "connection_failed", "details": str(exc)},
+            status_code=500
+        )
+
 # --- Show API response page ---
 @app.get("/api-response", response_class=HTMLResponse)
 async def api_response(request: Request, url: str = None):
+    lang = get_lang_from_request(request)
     if Config.USE_FAKE_API_DATA:
         api_result = json.loads(json.dumps(FAKE_API_RESULT))
         return templates.TemplateResponse(
@@ -219,7 +295,9 @@ async def api_response(request: Request, url: str = None):
                 "request": request,
                 "api_result": api_result,
                 "fake_logs": FAKE_STREAM_LOGS,
-                "use_fake": True
+                "use_fake": True,
+                "lang": lang,
+                "i18n": TRANSLATIONS.get(lang, {})
             }
         )
     # Реальный режим — нужен URL для анализа
@@ -229,20 +307,42 @@ async def api_response(request: Request, url: str = None):
         {
             "request": request,
             "api_result": api_result,
-            "use_fake": False
+            "use_fake": False,
+            "lang": lang,
+            "i18n": TRANSLATIONS.get(lang, {})
         }
     )
+# --- API endpoint for setting language ---
+@app.get("/set-lang/{lang}")
+async def set_language(lang: str, request: Request):
+    """Установить язык и перенаправить на предыдущую страницу"""
+    if lang not in SUPPORTED_LANGUAGES:
+        lang = DEFAULT_LANGUAGE
+    
+    referer = request.headers.get('referer', '/')
+    response = HTMLResponse(content="", status_code=302)
+    response.headers['Location'] = referer
+    response.set_cookie(key='lang', value=lang, max_age=31536000)  # 1 год
+    return response
+
 # Главная страница GET
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Главная страница с элементом для замены через Jinja"""
-    return templates.TemplateResponse("mainpage.html", {"request": request, "api_post": False})
+    lang = get_lang_from_request(request)
+    return templates.TemplateResponse("mainpage.html", {
+        "request": request, 
+        "api_post": False,
+        "lang": lang,
+        "i18n": TRANSLATIONS.get(lang, {})
+    })
 
 # Главная страница POST (анализ)
 @app.post("/", response_class=HTMLResponse)
 async def home_post(request: Request):
     form = await request.form()
     url = form.get("url")
+    lang = get_lang_from_request(request)
     
     if Config.USE_FAKE_API_DATA:
         # Используем фейковые данные
@@ -255,7 +355,9 @@ async def home_post(request: Request):
                 "api_post": True,
                 "api_result": api_result,
                 "fake_logs": FAKE_STREAM_LOGS,
-                "use_fake": True
+                "use_fake": True,
+                "lang": lang,
+                "i18n": TRANSLATIONS.get(lang, {})
             }
         )
     
@@ -267,7 +369,9 @@ async def home_post(request: Request):
             "request": request,
             "api_post": True,
             "api_result": real_result,
-            "use_fake": False
+            "use_fake": False,
+            "lang": lang,
+            "i18n": TRANSLATIONS.get(lang, {})
         }
     )
 
@@ -275,28 +379,43 @@ async def home_post(request: Request):
 @app.get("/library", response_class=HTMLResponse)
 async def library(request: Request):
     """Страница библиотеки со статьями"""
+    lang = get_lang_from_request(request)
     return templates.TemplateResponse("library.html", {
         "request": request,
-        "articles": articles_data
+        "articles": articles_data,
+        "lang": lang,
+        "i18n": TRANSLATIONS.get(lang, {})
     })
 
 
 @app.get("/article/{article_id}", response_class=HTMLResponse)
 async def get_article(article_id: int, request: Request):
     """Получить информацию о конкретной статье"""
+    lang = get_lang_from_request(request)
     article = next((a for a in articles_data if a["id"] == article_id), None)
     if article:
         return templates.TemplateResponse("article-fragment.html", {
             "request": request,
-            "article": article
+            "article": article,
+            "lang": lang,
+            "i18n": TRANSLATIONS.get(lang, {})
         })
-    return templates.TemplateResponse("404.html", {"request": request})
+    return templates.TemplateResponse("404.html", {
+        "request": request,
+        "lang": lang,
+        "i18n": TRANSLATIONS.get(lang, {})
+    })
 
 
 @app.get("/about", response_class=HTMLResponse)
 async def about(request: Request):
     """Страница About Us"""
-    return templates.TemplateResponse("about.html", {"request": request})
+    lang = get_lang_from_request(request)
+    return templates.TemplateResponse("about.html", {
+        "request": request,
+        "lang": lang,
+        "i18n": TRANSLATIONS.get(lang, {})
+    })
 
 
 if __name__ == "__main__":

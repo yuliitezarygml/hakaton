@@ -409,6 +409,11 @@ body.modal-open {
         width: 100%;
         background-color: #2A2A2A;
         height: 28px;
+        
+        .lang-link {
+            text-decoration: none;
+            color: white;
+        }
 
         div {
             gap: 15px;
@@ -859,7 +864,7 @@ main {
             }
             .api-analyze-btn {
                 display: block;
-                width: 143px;
+                // width: 143px;
                 height: 47px;
                 background: #0053FF;
                 color: #fff;
@@ -870,6 +875,7 @@ main {
                 font-weight: 600;
                 margin-top: 8px;
                 cursor: pointer;
+                  padding: 0 20px;
             }
         }
         
@@ -942,7 +948,8 @@ main {
                 font-size: 18px;
                 font-weight: bolder;
                 text-decoration: none;
-                gap: 10px;
+                gap: 10px;  
+                padding: 0 20px;
             }
             img {
                 max-width: 38px;
@@ -1791,6 +1798,10 @@ ul, ol {
     }
 }
 @media (max-width: 520px) {
+    .about-contacts {
+        margin: 0 10px;
+        // min-width: 355px !important;
+    }
     .feedback {
         gap: 0px !important;
     }
@@ -1800,5 +1811,359 @@ ul, ol {
         .left-footer-text {
             display: none;
         }
+    }
+}
+
+/* ===============================================
+   HISTORY PANEL STYLES
+   =============================================== */
+
+// History button in navbar
+.nav-history-btn {
+    position: absolute;
+    right: 10%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    transition: all 0.3s ease;
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.4);
+        transform: scale(1.05);
+    }
+
+    svg {
+        width: 22px;
+        height: 22px;
+    }
+}
+
+// Hide history button on mobile
+@media (max-width: 900px) {
+    .nav-history-btn {
+        display: none;
+    }
+}
+
+// History panel backdrop
+.history-panel-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+
+    &.is-open {
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+// History panel
+.history-panel {
+    position: fixed;
+    top: 0;
+    right: -420px;
+    width: 400px;
+    max-width: 90vw;
+    height: 100vh;
+    background: linear-gradient(180deg, #0D1629 0%, #00122F 100%);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    transition: right 0.3s ease;
+    box-shadow: -5px 0 30px rgba(0, 0, 0, 0.3);
+
+    &.is-open {
+        right: 0;
+    }
+}
+
+// Panel header
+.history-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.history-panel-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+}
+
+.history-panel-close {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s;
+
+    &:hover {
+        color: #fff;
+    }
+}
+
+// Stats section
+.history-panel-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.history-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+
+    &--success .history-stat-value {
+        color: #22c55e;
+    }
+
+    &--danger .history-stat-value {
+        color: #ef4444;
+    }
+}
+
+.history-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.history-stat-label {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+// Panel content
+.history-panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.history-loading {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 40px 20px;
+}
+
+.history-empty {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    padding: 40px 20px;
+
+    &-icon {
+        font-size: 3rem;
+        margin-bottom: 12px;
+    }
+}
+
+// History card
+.history-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateX(-4px);
+    }
+
+    &-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    &-id {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.4);
+        font-weight: 500;
+    }
+
+    &-date {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    &-score {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    &-score-circle {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #fff;
+        flex-shrink: 0;
+
+        &.score-high {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+        }
+
+        &.score-medium {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+
+        &.score-low {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+    }
+
+    &-verdict {
+        flex: 1;
+
+        &-label {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        &-text {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #fff;
+        }
+    }
+
+    &-url {
+        font-size: 0.8rem;
+        color: #60a5fa;
+        word-break: break-all;
+        text-decoration: none;
+        display: block;
+        padding: 8px 10px;
+        background: rgba(96, 165, 250, 0.1);
+        border-radius: 6px;
+        transition: background 0.2s;
+
+        &:hover {
+            background: rgba(96, 165, 250, 0.2);
+            text-decoration: underline;
+        }
+
+        &-empty {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.4);
+            font-style: italic;
+            padding: 8px 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+        }
+
+        &-info {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        &-icon {
+            font-size: 1rem;
+        }
+    }
+
+    &-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-left: 8px;
+
+        &.badge-real {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+
+        &.badge-fake {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+    }
+}
+
+// Error state
+.history-error {
+    text-align: center;
+    color: #ef4444;
+    padding: 40px 20px;
+
+    &-icon {
+        font-size: 2.5rem;
+        margin-bottom: 12px;
+    }
+
+    &-text {
+        font-size: 0.9rem;
+        margin-bottom: 16px;
+    }
+}
+
+.history-retry-btn {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+
+    &:hover {
+        background: rgba(239, 68, 68, 0.3);
     }
 }

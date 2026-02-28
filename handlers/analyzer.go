@@ -3,8 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"text-analyzer/models"
 	"text-analyzer/services"
 	"time"
@@ -226,4 +229,22 @@ func (h *AnalyzerHandler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(result)
+}
+
+// ExtHash — возвращает хэш файлов расширения для авто-перезагрузки в dev-режиме.
+// GET /api/ext/hash
+func (h *AnalyzerHandler) ExtHash(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+
+	hasher := fnv.New32a()
+	_ = filepath.Walk("EXTENSION", func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		fmt.Fprintf(hasher, "%s:%d:%d;", filepath.Base(path), info.ModTime().UnixNano(), info.Size())
+		return nil
+	})
+
+	json.NewEncoder(w).Encode(map[string]string{"hash": fmt.Sprintf("%x", hasher.Sum32())})
 }

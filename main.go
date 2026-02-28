@@ -59,13 +59,21 @@ func main() {
 		log.Printf("✓ Serper клиент инициализирован")
 	}
 
+	var factCheckClient *services.GoogleFactCheckClient
+	if cfg.GoogleFactCheckAPIKey != "" {
+		factCheckClient = services.NewGoogleFactCheckClient(cfg.GoogleFactCheckAPIKey)
+		log.Printf("✓ Google Fact Check клиент инициализирован")
+	} else {
+		log.Printf("  - Google Fact Check API: отключен")
+	}
+
 	var analyzerService *services.AnalyzerService
 
 	switch {
 	case cfg.UseGroq:
 		log.Println("⚡ Инициализация Groq клиента...")
 		groqClient := services.NewGroqClient(cfg.GroqAPIKeys, cfg.GroqModel, promptConfig)
-		analyzerService = services.NewAnalyzerService(groqClient, contentFetcher, serperClient, promptConfig)
+		analyzerService = services.NewAnalyzerService(groqClient, contentFetcher, serperClient, factCheckClient, promptConfig)
 		log.Println("✓ Groq режим активирован")
 
 	default:
@@ -74,17 +82,33 @@ func main() {
 		}
 		log.Println("☁ Инициализация OpenRouter клиента...")
 		openRouterClient := services.NewOpenRouterClient(cfg.OpenRouterAPIKey, cfg.OpenRouterModel, cfg.OpenRouterModelBackup, promptConfig)
-		analyzerService = services.NewAnalyzerService(openRouterClient, contentFetcher, serperClient, promptConfig)
+		analyzerService = services.NewAnalyzerService(openRouterClient, contentFetcher, serperClient, factCheckClient, promptConfig)
 		log.Println("✓ OpenRouter режим активирован")
 	}
 
+	chainService := services.NewChainService(
+		func() services.AIClient {
+			switch {
+			case cfg.UseGroq:
+				return services.NewGroqClient(cfg.GroqAPIKeys, cfg.GroqModel, promptConfig)
+			default:
+				return services.NewOpenRouterClient(cfg.OpenRouterAPIKey, cfg.OpenRouterModel, cfg.OpenRouterModelBackup, promptConfig)
+			}
+		}(),
+		contentFetcher,
+		serperClient,
+	)
+
 	analyzerHandler := handlers.NewAnalyzerHandler(analyzerService)
+	chainHandler := handlers.NewChainHandler(chainService)
 	domainHandler := handlers.NewDomainHandler()
 	shareHandler := handlers.NewShareHandler()
 	adminHandler := handlers.NewAdminHandler(cfg, analyzerService)
 	dockerHandler := handlers.NewDockerHandler(adminHandler)
 	log.Println("✓ Сервисы инициализированы")
 
+	http.HandleFunc("/api/chain/stream", chainHandler.Stream)
+	http.HandleFunc("/api/ext/hash", analyzerHandler.ExtHash)
 	http.HandleFunc("/api/analyze", analyzerHandler.Analyze)
 	http.HandleFunc("/api/analyze/stream", analyzerHandler.AnalyzeStream)
 	http.HandleFunc("/api/chat", analyzerHandler.Chat)

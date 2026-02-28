@@ -14,6 +14,9 @@ function initializeApp() {
 
     // Инициализация стриминга API
     setupApiStreaming();
+
+    // Инициализация панели истории
+    setupHistoryPanel();
 }
 
 function setupNavigation() {
@@ -355,6 +358,7 @@ function setupApiStreaming() {
         setList('verifiable_facts', factCheck.verifiable_facts);
         setList('opinions_as_facts', factCheck.opinions_as_facts);
         setList('missing_evidence', factCheck.missing_evidence);
+        setList('found_evidence', factCheck.found_evidence);
         setList('manipulations', result.manipulations);
         setList('logical_issues', result.logical_issues);
         
@@ -502,5 +506,213 @@ function setupApiStreaming() {
     source.onmessage = (event) => {
         appendLog('progress', event.data);
     };
+}
+
+// ===============================================
+// HISTORY PANEL
+// ===============================================
+
+function setupHistoryPanel() {
+    const toggleBtn = document.getElementById('historyToggleBtn');
+    const closeBtn = document.getElementById('historyCloseBtn');
+    const panel = document.getElementById('historyPanel');
+    const backdrop = document.getElementById('historyBackdrop');
+
+    if (!toggleBtn || !panel) {
+        return;
+    }
+
+    // Toggle panel
+    toggleBtn.addEventListener('click', () => {
+        openHistoryPanel();
+    });
+
+    // Close panel
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            closeHistoryPanel();
+        });
+    }
+
+    // Close on backdrop click
+    if (backdrop) {
+        backdrop.addEventListener('click', () => {
+            closeHistoryPanel();
+        });
+    }
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && panel.classList.contains('is-open')) {
+            closeHistoryPanel();
+        }
+    });
+}
+
+function openHistoryPanel() {
+    const panel = document.getElementById('historyPanel');
+    const backdrop = document.getElementById('historyBackdrop');
+
+    if (panel) {
+        panel.classList.add('is-open');
+    }
+    if (backdrop) {
+        backdrop.classList.add('is-open');
+    }
+    document.body.style.overflow = 'hidden';
+
+    // Fetch history data
+    fetchHistoryData();
+}
+
+function closeHistoryPanel() {
+    const panel = document.getElementById('historyPanel');
+    const backdrop = document.getElementById('historyBackdrop');
+
+    if (panel) {
+        panel.classList.remove('is-open');
+    }
+    if (backdrop) {
+        backdrop.classList.remove('is-open');
+    }
+    document.body.style.overflow = '';
+}
+
+async function fetchHistoryData() {
+    const content = document.getElementById('historyContent');
+    const statsTotal = document.getElementById('statTotalRequests');
+    const statsAvg = document.getElementById('statAvgScore');
+    const statsReal = document.getElementById('statRealCount');
+    const statsFake = document.getElementById('statFakeCount');
+
+    if (!content) return;
+
+    // Show loading state
+    content.innerHTML = '<div class="history-loading">Loading...</div>';
+
+    try {
+        const response = await fetch('/api/history/stats', {
+            method: 'GET'
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Update stats
+        if (statsTotal) statsTotal.textContent = data.total_requests || 0;
+        if (statsAvg) statsAvg.textContent = data.average_score ? data.average_score.toFixed(1) : '-';
+        if (statsReal) statsReal.textContent = data.real_count || 0;
+        if (statsFake) statsFake.textContent = data.fake_count || 0;
+
+        // Render cards
+        renderHistoryCards(data.recent_requests || []);
+
+    } catch (error) {
+        console.error('Error fetching history:', error);
+        content.innerHTML = `
+            <div class="history-error">
+                <div class="history-error-icon">⚠️</div>
+                <div class="history-error-text">Failed to load history</div>
+                <button class="history-retry-btn" onclick="fetchHistoryData()">Retry</button>
+            </div>
+        `;
+    }
+}
+
+function renderHistoryCards(requests) {
+    const content = document.getElementById('historyContent');
+    if (!content) return;
+
+    if (!requests || requests.length === 0) {
+        content.innerHTML = `
+            <div class="history-empty">
+                <div class="history-empty-icon">📭</div>
+                <div>No requests yet</div>
+            </div>
+        `;
+        return;
+    }
+
+    const cardsHTML = requests.map(req => {
+        const score = req.score || 0;
+        const scoreClass = score >= 7 ? 'score-high' : (score >= 4 ? 'score-medium' : 'score-low');
+        const verdictText = score >= 7 ? 'Reliable' : (score >= 4 ? 'Doubtful' : 'Unreliable');
+        const badgeClass = req.is_fake ? 'badge-fake' : 'badge-real';
+        const badgeText = req.is_fake ? 'FAKE' : 'REAL';
+
+        // Format date
+        const date = new Date(req.created_at);
+        const formattedDate = formatHistoryDate(date);
+        const fullDate = date.toLocaleString();
+
+        // URL handling - show URL if available, otherwise show request info
+        let urlHTML;
+        if (req.url && req.url.trim() !== '') {
+            urlHTML = `<a href="${escapeHtml(req.url)}" target="_blank" class="history-card-url" title="${escapeHtml(req.url)}">${truncateUrl(req.url, 40)}</a>`;
+        } else {
+            urlHTML = `<div class="history-card-url-info">
+                <span class="history-card-url-icon">📋</span>
+                <span>Request #${req.id} · ${fullDate}</span>
+            </div>`;
+        }
+
+        return `
+            <div class="history-card">
+                <div class="history-card-header">
+                    <span class="history-card-id">#${req.id}</span>
+                    <span class="history-card-date">${formattedDate}</span>
+                </div>
+                <div class="history-card-score">
+                    <div class="history-card-score-circle ${scoreClass}">${score}</div>
+                    <div class="history-card-verdict">
+                        <div class="history-card-verdict-label">Verdict</div>
+                        <div class="history-card-verdict-text">
+                            ${verdictText}
+                            <span class="history-card-badge ${badgeClass}">${badgeText}</span>
+                        </div>
+                    </div>
+                </div>
+                ${urlHTML}
+            </div>
+        `;
+    }).join('');
+
+    content.innerHTML = cardsHTML;
+}
+
+function formatHistoryDate(date) {
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+
+    return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function truncateUrl(url, maxLength) {
+    if (!url) return '';
+    if (url.length <= maxLength) return url;
+    return url.substring(0, maxLength) + '...';
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ lang | default('en') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,9 +15,9 @@
     <nav class="navbar">
         <div class="nav-lang-bar">
             <div>
-                <p>Русский</p>
-                <b>English</b>
-                <p>Romanian</p>
+                <a href="/set-lang/ru" class="lang-link {% if lang == 'ru' %}active{% endif %}">Русский</a>
+                <a href="/set-lang/en" class="lang-link {% if lang == 'en' or not lang %}active{% endif %}">English</a>
+                <a href="/set-lang/ro" class="lang-link {% if lang == 'ro' %}active{% endif %}">Română</a>
             </div>
         </div>
         <div class="nav-main-bar">
@@ -26,13 +26,48 @@
                 <p class="text-logo"><span>Fact</span><br>Guard</p>
             </div>
             <ul class="nav-menu">
-                <li><a href="/" class="{% if request.url.path == '/' %}active{% endif %}">Home</a></li>
-                <li><a href="/library" class="{% if request.url.path == '/library' %}active{% endif %}">Methodologys</a></li>
-                <li><a href="/about" class="{% if request.url.path == '/about' %}active{% endif %}">About Us</a></li>
+                <li><a href="/" class="{% if request.url.path == '/' %}active{% endif %}">{{ i18n.nav.home | default('Home') }}</a></li>
+                <li><a href="/library" class="{% if request.url.path == '/library' %}active{% endif %}">{{ i18n.nav.methodologies | default('Methodologies') }}</a></li>
+                <li><a href="/about" class="{% if request.url.path == '/about' %}active{% endif %}">{{ i18n.nav.about | default('About Us') }}</a></li>
             </ul>
-            <!-- <img class="nav-search-cirle" src="static\icons\find-header-circle.svg" alt="search"> -->
+            <button class="nav-history-btn" id="historyToggleBtn" title="{{ i18n.nav.history | default('History') }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+            </button>
         </div>
     </nav>
+
+    <!-- History Panel -->
+    <div class="history-panel" id="historyPanel">
+        <div class="history-panel-header">
+            <h3 class="history-panel-title">{{ i18n.history.title | default('Request History') }}</h3>
+            <button class="history-panel-close" id="historyCloseBtn">&times;</button>
+        </div>
+        <div class="history-panel-stats" id="historyStats">
+            <div class="history-stat">
+                <span class="history-stat-value" id="statTotalRequests">-</span>
+                <span class="history-stat-label">{{ i18n.history.total | default('Total') }}</span>
+            </div>
+            <div class="history-stat">
+                <span class="history-stat-value" id="statAvgScore">-</span>
+                <span class="history-stat-label">{{ i18n.history.avg_score | default('Avg Score') }}</span>
+            </div>
+            <div class="history-stat history-stat--success">
+                <span class="history-stat-value" id="statRealCount">-</span>
+                <span class="history-stat-label">{{ i18n.history.real | default('Real') }}</span>
+            </div>
+            <div class="history-stat history-stat--danger">
+                <span class="history-stat-value" id="statFakeCount">-</span>
+                <span class="history-stat-label">{{ i18n.history.fake | default('Fake') }}</span>
+            </div>
+        </div>
+        <div class="history-panel-content" id="historyContent">
+            <div class="history-loading">{{ i18n.history.loading | default('Loading...') }}</div>
+        </div>
+    </div>
+    <div class="history-panel-backdrop" id="historyBackdrop"></div>
 
     <main class="container">
         {% block content %}{% endblock %}
@@ -40,11 +75,11 @@
     <div class="body-bg-bottom"></div>
 
     <footer>
-        <span>© 2026 Mitsuhano & yuliitezary. All rights reserved.</span>
+        <span>{{ i18n.footer.copyright | default('© 2026 Mitsuhano & yuliitezary. All rights reserved.') }}</span>
         <div>
-            <p class="left-footer-text">Be cautious with major news stories — verify facts before believing or sharing so you don’t <br> get misled!</p>
+            <p class="left-footer-text">{{ i18n.footer.warning | default("Be cautious with major news stories — verify facts before believing or sharing so you don't get misled!") }}</p>
             <img src="static\icons\footer-line.svg" alt="footer-line">
-            <p class="right-footer-text">mitsuhanocreations@gmail.com <br> +373 606 51 084</p>
+            <p class="right-footer-text">{{ i18n.footer.email | default('mitsuhanocreations@gmail.com') }} <br> {{ i18n.footer.phone | default('+373 606 51 084') }}</p>
         </div>
     </footer>
 
