@@ -1,48 +1,48 @@
-# 🔍 ANALYST — Text & Disinformation Analyzer
+# 🔍 ANALYST — Анализатор текстов и дезинформации
 
-> AI-powered fact-checking platform: detects disinformation, manipulations, and logical fallacies in articles and news.  
-> Works as a **web app**, **Telegram bot**, and **Chrome extension** — all connected to the same backend.
+> AI-платформа для проверки фактов: обнаруживает дезинформацию, манипуляции и логические ошибки в статьях и новостях.  
+> Работает как **веб-приложение**, **Telegram-бот** и **расширение для Chrome** — все клиенты подключены к одному бэкенду.
 
 ---
 
-## 📐 Architecture Overview
+## 📐 Архитектура системы
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         INTERNET / CLIENTS                      │
+│                        КЛИЕНТЫ / ИНТЕРНЕТ                       │
 │  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
-│  │ Chrome Ext.  │  │  Telegram Bot    │  │  Web Browser     │  │
-│  │ (Manifest V3)│  │  (Go, polling/   │  │  (Fact Guard     │  │
-│  │              │  │   webhook)       │  │   frontend)      │  │
+│  │ Расширение   │  │  Telegram Bot    │  │  Веб-браузер     │  │
+│  │ Chrome       │  │  (Go, polling/   │  │  (Fact Guard     │  │
+│  │ (Manifest V3)│  │   webhook)       │  │   фронтенд)      │  │
 │  └──────┬───────┘  └────────┬─────────┘  └────────┬─────────┘  │
 └─────────┼───────────────────┼─────────────────────┼────────────┘
           │                   │                     │
           ▼                   ▼                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     NGINX (port 80)                             │
+│                     NGINX (порт 80)                             │
 │  /api/*  → backend:8080                                         │
 │  /admin/ → backend:8080                                         │
-│  /s/*    → backend:8080  (share pages)                          │
-│  /       → fact-guard:80 (frontend)                             │
+│  /s/*    → backend:8080  (страницы шаринга)                     │
+│  /       → fact-guard:80 (фронтенд)                             │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                  GO BACKEND (port 8080)                         │
+│               GO БЭКЕНД (порт 8080)                             │
 │                                                                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐   │
-│  │  Analyzer   │  │   Content   │  │   Serper (Google     │   │
-│  │  Service    │  │   Fetcher   │  │   Search API)        │   │
+│  │  Сервис     │  │  Фетчер     │  │   Serper (Google     │   │
+│  │  Анализа    │  │  контента   │  │   Search API)        │   │
 │  │             │  │             │  │                      │   │
-│  │ • Queue(1)  │  │ • HTML parse│  │ • Fact verification  │   │
-│  │ • Pause/    │  │ • SPA fbk   │  │ • Multi-lang search  │   │
-│  │   Resume    │  │ • OG/ld+json│  │ • Cross-check        │   │
+│  │ • Очередь  │  │ • HTML парс │  │ • Проверка фактов    │   │
+│  │ • Пауза/   │  │ • SPA fbk   │  │ • Мультиязычный поиск│   │
+│  │   Возобновл│  │ • OG/ld+json│  │ • Перекрёстная провер│   │
 │  └──────┬──────┘  └─────────────┘  └──────────────────────┘   │
 │         │                                                       │
 │  ┌──────▼──────────────────────────────────┐                   │
-│  │           AI Client (interface)          │                   │
+│  │         AI Клиент (интерфейс)            │                   │
 │  │  ┌────────────┐      ┌───────────────┐  │                   │
-│  │  │    Groq    │  OR  │  OpenRouter   │  │                   │
+│  │  │    Groq    │  ИЛИ │  OpenRouter   │  │                   │
 │  │  │ llama-3.3  │      │ qwen3/deepseek│  │                   │
 │  │  └────────────┘      └───────────────┘  │                   │
 │  └─────────────────────────────────────────┘                   │
@@ -50,375 +50,383 @@
              │                    │
       ┌──────▼──────┐     ┌───────▼──────┐
       │  PostgreSQL  │     │    Redis     │
-      │  (results,   │     │  (24h cache, │
-      │   shares,    │     │   hash-key)  │
-      │   domains)   │     └──────────────┘
+      │  (результаты,│     │  (кэш 24ч,  │
+      │   шаринг,    │     │   SHA-256)   │
+      │   домены)    │     └──────────────┘
       └──────────────┘
 ```
 
 ---
 
-## 🗂️ Project Structure
+## 🗂️ Структура проекта
 
 ```
 openrouter-web/
-├── main.go                    # HTTP server, route registration
-├── Dockerfile                 # Go backend image
-├── docker-compose.yml         # All 6 services
-├── nginx.conf                 # Reverse proxy config
-├── .env.example               # All env vars documented
+├── main.go                    # HTTP-сервер, регистрация роутов
+├── Dockerfile                 # Образ Go-бэкенда
+├── docker-compose.yml         # Все 6 сервисов
+├── nginx.conf                 # Конфигурация обратного прокси
+├── .env.example               # Все переменные окружения с описанием
 │
-├── handlers/                  # HTTP handlers
+├── handlers/                  # HTTP-обработчики
 │   ├── analyzer.go            # /api/analyze, /api/analyze/stream, /api/chat
-│   ├── share.go               # /api/share (create), /s/:id (view page)
-│   ├── admin.go               # /api/admin/* (stats, logs, pause/resume)
-│   ├── docker.go              # /api/admin/docker/* (containers, logs WS)
+│   ├── share.go               # /api/share (создать), /s/:id (страница)
+│   ├── admin.go               # /api/admin/* (статистика, логи, пауза)
+│   ├── docker.go              # /api/admin/docker/* (контейнеры, логи WS)
 │   └── domain.go              # /api/domain/:host, /api/domains/top
 │
-├── services/                  # Business logic
-│   ├── analyzer.go            # Analysis pipeline: cache→fetch→AI→verify→save
-│   ├── fetcher.go             # Smart URL fetcher (HTML, SPA, OG tags)
-│   ├── openrouter.go          # OpenRouter AI client
-│   ├── groq.go                # Groq AI client (faster, free)
-│   ├── serper.go              # Google Search via Serper API
-│   ├── ratelimit.go           # Rate limit tracker per provider
-│   ├── prompt_loader.go       # Loads prompts from config/prompts.json
-│   └── domain.go              # Domain reputation stats
+├── services/                  # Бизнес-логика
+│   ├── analyzer.go            # Пайплайн: кэш→fetch→AI→верификация→сохранение
+│   ├── fetcher.go             # Умный фетчер URL (HTML, SPA, OG-теги)
+│   ├── openrouter.go          # AI-клиент OpenRouter
+│   ├── groq.go                # AI-клиент Groq (быстрее, бесплатный)
+│   ├── serper.go              # Google Search через Serper API
+│   ├── ratelimit.go           # Трекер rate limit по провайдерам
+│   ├── prompt_loader.go       # Загрузка промптов из config/prompts.json
+│   └── domain.go              # Статистика репутации доменов
 │
 ├── config/
-│   └── prompts.json           # AI system prompt, scoring rules, examples
+│   └── prompts.json           # Системный промпт AI, правила оценки, примеры
 │
-├── database/                  # PostgreSQL init, connection
-├── cache/                     # Redis client wrapper
-├── models/                    # Shared Go structs (AnalysisResponse, etc.)
-├── logger/                    # Ring-buffer log writer for admin panel
+├── database/                  # Инициализация и подключение PostgreSQL
+├── cache/                     # Обёртка Redis-клиента
+├── models/                    # Общие Go-структуры (AnalysisResponse и др.)
+├── logger/                    # Ring-buffer логгер для админ-панели
 │
-├── admin/                     # Admin panel (static HTML)
-│   ├── index.html             # Dashboard: stats, logs, rate limits
-│   ├── docker.html            # Docker containers management
-│   ├── share.html             # Public share result page
-│   └── mian.css               # Shared admin design system
+├── admin/                     # Админ-панель (статические HTML)
+│   ├── index.html             # Дэшборд: статистика, логи, rate limits
+│   ├── docker.html            # Управление Docker-контейнерами
+│   ├── share.html             # Публичная страница результата
+│   └── mian.css               # Общая дизайн-система
 │
 ├── EXTENSION/                 # Chrome Extension (Manifest V3)
 │   ├── manifest.json
-│   ├── popup.html / popup.js  # Extension popup UI
-│   ├── popup.css              # Premium glassmorphism design
-│   ├── content.js             # Page scanner (injected into tab)
+│   ├── popup.html / popup.js  # UI попапа расширения
+│   ├── popup.css              # Премиальный дизайн
+│   ├── content.js             # Сканер страницы (инжектируется в таб)
 │   └── background.js          # Service worker
 │
-├── telegram-bot/              # Telegram bot (separate Go module)
-│   ├── main.go                # Bot logic: polling/webhook, handlers
-│   ├── analyzer.go            # SSE client for /api/analyze/stream
-│   └── formatter.go           # Telegram HTML message formatter
+├── telegram-bot/              # Telegram-бот (отдельный Go-модуль)
+│   ├── main.go                # Логика бота: polling/webhook, обработчики
+│   ├── analyzer.go            # SSE-клиент для /api/analyze/stream
+│   └── formatter.go           # Форматирование HTML-сообщений Telegram
 │
-└── Fact_Guard-main/           # Web frontend (separate service)
-    └── ...                    # React/Next.js frontend app
+└── Fact_Guard-main/           # Веб-фронтенд (отдельный сервис)
+    └── ...                    # Python/Flask фронтенд-приложение
 ```
 
 ---
 
-## 🚀 How It Works — Full Pipeline
+## 🚀 Как работает — полный пайплайн
 
-### URL Analysis Flow
+### Анализ URL
 
 ```
-User sends URL
-      │
-      ▼
-1. Content Fetcher
-   ├── HTTP GET with browser-like headers
-   ├── Parse HTML → extract main text
-   ├── Fallback: ld+json structured data
-   ├── Fallback: OG meta tags (title + description)
-   └── Result: clean article text
+Пользователь отправляет URL
+         │
+         ▼
+1. Фетчер контента
+   ├── HTTP GET с заголовками браузера
+   ├── Парсинг HTML → извлечение основного текста
+   ├── Fallback: ld+json структурированные данные
+   ├── Fallback: OG meta-теги (title + description)
+   └── Результат: чистый текст статьи
 
-      │
-      ▼
-2. Redis Cache Check (SHA-256 hash of text)
-   ├── HIT  → return cached result instantly
-   └── MISS → continue pipeline
+         │
+         ▼
+2. Проверка кэша Redis (SHA-256 хэш текста)
+   ├── ПОПАДАНИЕ  → мгновенный возврат из кэша
+   └── ПРОМАХ     → продолжаем пайплайн
 
-      │
-      ▼
-3. Serper Web Search (optional, if SERPER_API_KEY set)
-   └── Search Google for key claims in article
-       → adds "INTERNET CONTEXT" block to AI prompt
+         │
+         ▼
+3. Веб-поиск Serper (если установлен SERPER_API_KEY)
+   └── Поиск Google по ключевым утверждениям статьи
+       → добавляет блок "КОНТЕКСТ ИЗ ИНТЕРНЕТА" в AI-промпт
 
-      │
-      ▼
-4. Request Queue (semaphore, max 1 concurrent AI request)
-   └── Other requests wait with position indicator
+         │
+         ▼
+4. Очередь запросов (семафор, макс. 1 одновременный AI-запрос)
+   └── Остальные запросы ждут с индикацией позиции в очереди
 
-      │
-      ▼
-5. AI Analysis (Groq or OpenRouter)
-   └── Sends: system_prompt + article text + search context
-       Receives: JSON with:
+         │
+         ▼
+5. AI-анализ (Groq или OpenRouter)
+   └── Отправляет: system_prompt + текст статьи + контекст поиска
+       Получает: JSON с полями:
          • credibility_score (0-10)
-         • summary
-         • manipulations[]
-         • logical_issues[]
+         • summary — краткое резюме
+         • manipulations[] — список манипуляций
+         • logical_issues[] — логические ошибки
          • fact_check { verifiable_facts, opinions_as_facts, missing_evidence }
-         • score_breakdown (step-by-step)
-         • final_verdict
-         • reasoning
+         • score_breakdown — пошаговый расчёт
+         • final_verdict — итоговый вердикт
+         • reasoning — обоснование
 
-      │
-      ▼
-6. Cross-Verification (if score ≤ 7 and Serper available)
-   └── Search for key claims in multiple languages
-       → adds real_information and verified_sources
+         │
+         ▼
+6. Перекрёстная верификация (если оценка ≤ 7 и есть Serper)
+   └── Поиск ключевых утверждений на нескольких языках
+       → добавляет real_information и verified_sources
 
-      │
-      ▼
-7. Save results
-   ├── Redis cache (24h, SHA-256 key)
-   └── PostgreSQL (analysis_results table)
+         │
+         ▼
+7. Сохранение результатов
+   ├── Redis кэш (24 часа, SHA-256 ключ)
+   └── PostgreSQL (таблица analysis_results)
 
-      │
-      ▼
-8. Stream back to client via SSE
-   Events: start → progress → progress → ... → result
+         │
+         ▼
+8. Стриминг результата клиенту через SSE
+   События: start → progress → progress → ... → result
 ```
 
 ---
 
-## 📡 API Reference
+## 📡 Справочник API
 
-### Analysis
+### Анализ
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/analyze` | Full analysis, returns JSON |
-| `POST` | `/api/analyze/stream` | SSE stream: `start`, `progress`, `result`, `error` |
-| `POST` | `/api/chat` | Chat with AI about analysis context |
-| `GET`  | `/api/health` | Health check → `{"status":"ok"}` |
-| `GET`  | `/api/limits` | Rate limit stats per AI provider |
+| Метод | Эндпоинт | Описание |
+|-------|----------|----------|
+| `POST` | `/api/analyze` | Полный анализ, возвращает JSON |
+| `POST` | `/api/analyze/stream` | SSE поток: `start`, `progress`, `result`, `error` |
+| `POST` | `/api/chat` | Чат с AI в контексте результата анализа |
+| `GET`  | `/api/health` | Проверка доступности → `{"status":"ok"}` |
+| `GET`  | `/api/limits` | Статистика rate limits по AI-провайдерам |
 
-**Request body** (`/api/analyze`, `/api/analyze/stream`):
+**Тело запроса** (`/api/analyze`, `/api/analyze/stream`):
 ```json
 { "url": "https://example.com/article" }
-// OR
-{ "text": "Article text (min 100 chars)..." }
+// ИЛИ
+{ "text": "Текст статьи (минимум 100 символов)..." }
 ```
 
-**Result JSON structure**:
+**Структура ответа**:
 ```json
 {
   "credibility_score": 3,
-  "summary": "Article summary...",
-  "manipulations": ["Emotional language: phrase X", "..."],
-  "logical_issues": ["False cause-effect: ...", "..."],
+  "summary": "Краткое резюме статьи...",
+  "manipulations": ["Эмоциональный язык: фраза X", "..."],
+  "logical_issues": ["Ложная причинно-следственная связь: ...", "..."],
   "fact_check": {
     "verifiable_facts": ["..."],
     "opinions_as_facts": ["..."],
     "missing_evidence": ["..."]
   },
-  "score_breakdown": "Started at 5/10: -1 for emotional language, -1 for missing sources = 3/10",
-  "final_verdict": "FAKE",
+  "score_breakdown": "Начало 5/10: -1 за эмоциональный язык, -1 за отсутствие источников = 3/10",
+  "final_verdict": "FALS",
   "reasoning": "...",
   "verification": {
     "is_fake": true,
-    "fake_reasons": ["3 manipulations found", "..."],
-    "real_information": "Real info from verified sources...",
+    "fake_reasons": ["Найдено 3 манипуляции", "..."],
+    "real_information": "Реальная информация из проверенных источников...",
     "verified_sources": [{"title":"...", "url":"...", "description":"..."}]
   }
 }
 ```
 
-### Sharing
+### Шаринг результатов
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/share` | Save result → returns `{"id":"abc123","url":"https://.../s/abc123"}` |
-| `GET`  | `/api/share/:id` | Get raw JSON result from DB |
-| `GET`  | `/s/:id` | Beautiful HTML share page |
+| Метод | Эндпоинт | Описание |
+|-------|----------|----------|
+| `POST` | `/api/share` | Сохранить результат → `{"id":"abc123","url":"https://.../s/abc123"}` |
+| `GET`  | `/api/share/:id` | Получить JSON результата из БД |
+| `GET`  | `/s/:id` | Красивая HTML-страница результата |
 
-### Domain Stats
+### Репутация доменов
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET`  | `/api/domain/:host` | Domain reputation stats |
-| `GET`  | `/api/domains/top` | Top analyzed domains |
+| Метод | Эндпоинт | Описание |
+|-------|----------|----------|
+| `GET`  | `/api/domain/:host` | Статистика репутации домена |
+| `GET`  | `/api/domains/top` | Топ проанализированных доменов |
 
-### Admin (requires `X-Admin-Token` header)
+### Админ (требуется заголовок `X-Admin-Token`)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET`  | `/api/admin/stats` | Analysis counts, recent results |
-| `GET`  | `/api/admin/logs` | SSE live log stream |
-| `POST` | `/api/admin/pause` | Pause analysis processing |
-| `POST` | `/api/admin/resume` | Resume analysis processing |
-| `GET`  | `/api/admin/docker/containers` | List Docker containers |
-| `POST` | `/api/admin/docker/action` | Start/stop/restart container |
-| `WS`   | `/api/admin/docker/logs` | WebSocket container log stream |
+| Метод | Эндпоинт | Описание |
+|-------|----------|----------|
+| `GET`  | `/api/admin/stats` | Счётчики анализов, последние результаты |
+| `GET`  | `/api/admin/logs` | SSE поток живых логов |
+| `POST` | `/api/admin/pause` | Приостановить обработку анализов |
+| `POST` | `/api/admin/resume` | Возобновить обработку анализов |
+| `GET`  | `/api/admin/docker/containers` | Список Docker-контейнеров |
+| `POST` | `/api/admin/docker/action` | Запустить/остановить/перезапустить контейнер |
+| `WS`   | `/api/admin/docker/logs` | WebSocket поток логов контейнера |
 
 ---
 
-## 🤖 Telegram Bot
+## 🤖 Telegram-бот
 
-The bot connects to the same backend via `/api/analyze/stream`.
+Бот подключается к бэкенду через `/api/analyze/stream`.
 
-### Supported inputs
-| Input | Action |
-|-------|--------|
-| URL (`https://...`) | Fetch & analyze the article |
-| Forwarded message with URL | Extract URL, show source label |
-| Plain text | Politely respond: "URL analysis only, text in development" |
+### Поддерживаемые форматы ввода
+| Ввод | Действие |
+|------|----------|
+| URL (`https://...`) | Загрузить и проанализировать статью |
+| Пересланное сообщение с URL | Извлечь URL, показать метку источника |
+| Обычный текст | Вежливо ответить: «Анализ URL в разработке» |
 
-### Commands
-| Command | Description |
-|---------|-------------|
-| `/start` | Welcome message |
-| `/help` | Usage instructions |
-| `/cancel` | Stop current analysis |
+### Команды
+| Команда | Описание |
+|---------|----------|
+| `/start` | Приветственное сообщение |
+| `/help` | Инструкция по использованию |
+| `/cancel` | Остановить текущий анализ |
 
-### Result message format
+### Формат сообщения с результатом
 ```
 🟡 4/10 — СОМНИТЕЛЬНО
 [████░░░░░░] 4/10
 
-📝 Article summary text...
+📝 Краткое резюме статьи...
 
 ⚠️ Манипуляции:
-• Emotional language: phrase X
-• Appeal to emotions instead of facts
+• Эмоциональный язык: фраза X
+• Апелляция к эмоциям вместо фактов
 
 🔍 Логические ошибки:
-• False cause-effect: ...
+• Ложная причинно-следственная связь: ...
 
 [🔗 Поделиться] [🔄 Перепроверить]
 ```
 
-### Deployment modes
-- **Polling** (default, local dev) — long-polling Telegram API
-- **Webhook** (production) — set `WEBHOOK_URL` in `.env`
+### Режимы работы
+- **Polling** (по умолчанию, локальная разработка) — long-polling Telegram API
+- **Webhook** (продакшен) — установить `WEBHOOK_URL` в `.env`
 
 ---
 
-## 🧩 Chrome Extension
+## 🧩 Chrome-расширение
 
-**Manifest V3** extension that analyzes the current browser tab.
+Расширение на **Manifest V3**, анализирует текущую вкладку браузера.
 
-### Flow
+### Процесс работы
 ```
-User clicks extension icon
-        │
-        ▼
-1. Health check → backend online?
-        │
-        ▼
-2. Content script injected into tab
-   → Extracts text from page DOM
-   → Sends chunks back to popup via chrome.runtime.onMessage
-        │
-        ▼
-3. Popup shows scan progress
-   (chunks, char count, progress bar)
-        │
-        ▼
-4. POST /api/analyze/stream with tab URL
-   → SSE stream → live event log
-        │
-        ▼
-5. Render result:
-   • Score (0-10) with color
-   • Verdict badge
-   • Summary
-   • Manipulations list
-   • Logical issues list
-   • Missing evidence
+Пользователь нажимает на иконку расширения
+          │
+          ▼
+1. Проверка доступности бэкенда (health check)
+          │
+          ▼
+2. Инжекция content script в текущую вкладку
+   → Извлекает текст из DOM страницы
+   → Отправляет чанки в popup через chrome.runtime.onMessage
+          │
+          ▼
+3. Popup показывает прогресс сканирования
+   (чанки, количество символов, прогресс-бар)
+          │
+          ▼
+4. POST /api/analyze/stream с URL вкладки
+   → SSE поток → живой лог событий
+          │
+          ▼
+5. Отображение результата:
+   • Оценка (0-10) с цветом
+   • Бейдж вердикта
+   • Резюме
+   • Список манипуляций
+   • Логические ошибки
+   • Утверждения без доказательств
 ```
 
-### Permissions
-- `activeTab` — access current tab
-- `scripting` — inject content.js
-- `storage` — cache, history, userId
-- `contextMenus` — right-click menu
+### Разрешения
+- `activeTab` — доступ к текущей вкладке
+- `scripting` — инжекция content.js
+- `storage` — кэш, история, userId
+- `contextMenus` — контекстное меню
 - `host_permissions`: `https://apich.sinkdev.dev/*`
 
 ---
 
-## 🛡️ Admin Panel
+## 🛡️ Админ-панель
 
-Accessible at `/admin/` (requires token).
+Доступна по адресу `/admin/` (требуется токен).
 
-### Dashboard (`index.html`)
-- Total analyses count
-- Fake/credible ratio pie chart  
-- Recent analyses table (URL, score, verdict, date)
-- Live WebSocket log stream
-- API Tester (send test requests)
-- Rate limits display (`/api/limits`)
+### Дэшборд (`index.html`)
+- Общее количество анализов
+- Соотношение фейков/достоверных (круговая диаграмма)
+- Таблица последних анализов (URL, оценка, вердикт, дата)
+- Живой WebSocket поток логов
+- API-тестер (отправка тестовых запросов)
+- Отображение rate limits (`/api/limits`)
 
 ### Docker Manager (`docker.html`)
-- List all Docker containers with status
-- Start / Stop / Restart any container
-- Real-time WebSocket log stream per container
+- Список всех Docker-контейнеров со статусом
+- Запуск / Остановка / Перезапуск любого контейнера
+- Живой WebSocket поток логов контейнера
 
-### Share Page (`share.html`)
-- Public — no auth required
-- Fetches result from DB via `/api/share/:id`
-- Animated score counter (0→N)
-- Color-coded verdict
-- Manipulations, logical issues, missing evidence panels
+### Страница шаринга (`share.html`)
+- Публичная — авторизация не требуется
+- Загружает результат из БД через `/api/share/:id`
+- Анимированный счётчик оценки (от 0 до N)
+- Цветной вердикт
+- Панели манипуляций, логических ошибок, отсутствующих доказательств
 
 ---
 
-## 🧠 AI Scoring System
+## 🧠 Система оценки AI
 
-The prompt instructs the AI with strict rules (in `config/prompts.json`):
+Промпт задаёт строгие правила (в `config/prompts.json`):
 
 ```
-START:  5/10 (neutral)
+СТАРТ:  5/10 (нейтральная позиция)
 
-DEDUCTIONS:
-  -0.5  each identified manipulation (with quote)
-  -0.5  each claim without evidence
-  -0.5  each opinion presented as fact
-  -1.0  internal logical contradiction
-  -1.0  emotional / alarmist language
-  -1.0  no sources cited at all
-  -1.0  misleading or sensationalist title
-  -1.0  unverifiable or partisan sources
-  -2.0  demonstrable disinformation
+ВЫЧЕТЫ:
+  -0.5  за каждую манипуляцию (с цитатой из текста)
+  -0.5  за каждое утверждение без доказательств
+  -0.5  за каждое мнение, поданное как факт
+  -1.0  за внутреннее логическое противоречие
+  -1.0  за эмоциональный / алармистский язык
+  -1.0  за полное отсутствие источников в тексте
+  -1.0  за вводящий в заблуждение / сенсационный заголовок
+  -1.0  за неизвестные, предвзятые или непроверяемые источники
+  -2.0  за доказуемую дезинформацию
 
-ADDITIONS:
-  +0.5  verified fact with primary source citation
-  +1.0  multiple independent sources cited
-  +1.0  official document or peer-reviewed study
+ДОБАВЛЕНИЯ:
+  +0.5  за факт с цитированием первичного источника в тексте
+  +1.0  за явное цитирование нескольких независимых источников
+  +1.0  за официальный документ или рецензируемое исследование
 
-ANTI-INFLATION RULES:
-  8+  ONLY for: peer-reviewed, official government docs with sources
-  7   ONLY if: verified facts, neutral tone, max 1 minor issue
-  ≤6  All regular news/blog articles
-  ≠8+ if site name = "verified" / "provereno" — content is what matters
+АНТИИНФЛЯЦИОННЫЕ ПРАВИЛА:
+  8+  ТОЛЬКО для: рецензируемых статей, официальных документов с источниками
+  7   ТОЛЬКО если: факты верифицированы, нейтральный тон, макс. 1 незначительная проблема
+  ≤6  Все обычные новостные/блоговые статьи
+  ≠8+ если название сайта = «проверено» / «provereno» — важно только содержание
+
+ШКАЛА ОЦЕНОК:
+  0-2  Дезинформация / пропаганда
+  3-4  Преимущественно ложная информация
+  5-6  Спорный контент — смесь фактов и домыслов
+  7    Умеренно достоверно
+  8-9  Высокая достоверность
+  10   Исключительно рецензируемые/официальные документы
 ```
 
 ---
 
-## 🐳 Docker Services
+## 🐳 Docker-сервисы
 
-| Service | Image | Purpose |
-|---------|-------|---------|
-| `backend` | Custom Go build | Main API server |
-| `telegram-bot` | Custom Go build | Telegram bot |
-| `postgres` | `postgres:15-alpine` | Persistent storage |
-| `redis` | `redis:7-alpine` | Analysis cache |
-| `fact-guard` | Custom build | Web frontend |
-| `nginx` | `nginx:alpine` | Reverse proxy, port 80 |
+| Сервис | Образ | Назначение |
+|--------|-------|------------|
+| `backend` | Custom Go build | Основной API-сервер |
+| `telegram-bot` | Custom Go build | Telegram-бот |
+| `postgres` | `postgres:15-alpine` | Постоянное хранилище |
+| `redis` | `redis:7-alpine` | Кэш анализов |
+| `fact-guard` | Custom build | Веб-фронтенд |
+| `nginx` | `nginx:alpine` | Обратный прокси, порт 80 |
 
-### Health Checks
-- **postgres**: `pg_isready` every 10s
-- **backend**: `GET /api/health` every 15s
-- **telegram-bot**: waits for `backend` to be healthy
+### Проверки работоспособности (healthcheck)
+- **postgres**: `pg_isready` каждые 10 секунд
+- **backend**: `GET /api/health` каждые 15 секунд
+- **telegram-bot**: запускается только после успешного healthcheck бэкенда
 
 ---
 
-## ⚙️ Environment Variables
+## ⚙️ Переменные окружения
 
 ```env
-# AI Providers
+# AI-провайдеры
 USE_GROQ=true
 GROQ_API_KEY=gsk_...
 GROQ_MODEL=llama-3.3-70b-versatile
@@ -427,65 +435,65 @@ OPENROUTER_API_KEY=sk-or-v1-...
 OPENROUTER_MODEL=qwen/qwen3-coder:free
 OPENROUTER_MODEL_BACKUP=deepseek/deepseek-r1-0528:free
 
-# Web Search (Serper)
+# Веб-поиск (Serper)
 SERPER_API_KEY=...
 
-# Server
+# Сервер
 PORT=8080
-ADMIN_TOKEN=your_secret_token
+ADMIN_TOKEN=ваш_секретный_токен
 
-# Database
+# Базы данных
 DB_URL=postgres://user:password@postgres:5432/text_analyzer?sslmode=disable
 REDIS_URL=redis:6379
 
-# Telegram Bot
-TELEGRAM_TOKEN=your_bot_token
-API_BASE=https://your-domain.com
+# Telegram-бот
+TELEGRAM_TOKEN=токен_вашего_бота
+API_BASE=https://ваш-домен.com
 
-# Webhook mode (optional, falls back to polling)
-# WEBHOOK_URL=https://your-domain.com
+# Webhook-режим (опционально, по умолчанию polling)
+# WEBHOOK_URL=https://ваш-домен.com
 # WEBHOOK_PORT=8443
 ```
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Быстрый старт
 
 ```bash
-# 1. Clone and configure
+# 1. Клонировать и настроить
 cp .env.example .env
-# Edit .env with your API keys
+# Отредактировать .env — вставить свои API-ключи
 
-# 2. Start all services
+# 2. Запустить все сервисы
 docker compose up -d
 
-# 3. Check status
+# 3. Проверить статус
 docker compose ps
 docker compose logs -f backend
 
-# 4. Access
-# Web app:    http://localhost/
-# Admin:      http://localhost/admin/
-# API health: http://localhost/api/health
+# 4. Открыть
+# Веб-приложение:  http://localhost/
+# Админ-панель:   http://localhost/admin/
+# Проверка API:   http://localhost/api/health
 ```
 
 ---
 
-## 🔄 NGINX Routing
+## 🔄 Маршрутизация NGINX
 
 ```nginx
-location /api/   → backend:8080   # All API endpoints
-location /admin/ → backend:8080   # Admin panel static files
-location /s/     → backend:8080   # Share result pages
-location /       → fact-guard:80  # Web frontend (catch-all)
+location /api/   → backend:8080   # Все API-эндпоинты
+location /admin/ → backend:8080   # Статические файлы админ-панели
+location /s/     → backend:8080   # Страницы шаринга результатов
+location /       → fact-guard:80  # Веб-фронтенд (catch-all)
 ```
 
 ---
 
-## 📊 Database Schema (PostgreSQL)
+## 📊 Схема базы данных (PostgreSQL)
 
 ```sql
--- Analysis results
+-- Результаты анализов
 CREATE TABLE analysis_results (
   id         SERIAL PRIMARY KEY,
   text       TEXT,
@@ -494,7 +502,7 @@ CREATE TABLE analysis_results (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Shared results (with expiry)
+-- Общие результаты (с временем жизни)
 CREATE TABLE shared_results (
   id         VARCHAR(12) PRIMARY KEY,
   result     JSONB,
@@ -502,7 +510,7 @@ CREATE TABLE shared_results (
   expires_at TIMESTAMP DEFAULT NOW() + INTERVAL '30 days'
 );
 
--- Domain reputation
+-- Репутация доменов
 CREATE TABLE domain_stats (
   domain     TEXT PRIMARY KEY,
   total      INT,
@@ -513,61 +521,54 @@ CREATE TABLE domain_stats (
 
 ---
 
-## 📋 Task History (All Completed Tasks)
+## 📋 История задач (все выполненные)
 
-### Backend
+### Бэкенд
 
-- [x] **Content Fetcher (SPA)** — fallbacks for JS sites: ld+json → OG meta tags (`services/fetcher.go`)
-- [x] **Rate limit tracking** — reads `Retry-After` / `X-RateLimit-Reset-Requests` from 429 responses, logs wait time
-- [x] **GET /api/limits** — endpoint with current rate limit data per AI provider (`services/ratelimit.go`)
-- [x] **Request queue** — semaphore (max 1 concurrent AI request), position indicator to users
-- [x] **Redis caching** — 24h cache by SHA-256 hash of content
-- [x] **PostgreSQL persistence** — all results saved with URL and timestamp
-- [x] **Cross-verification** — Serper multi-language search to verify key claims
-- [x] **Pausing** — admin can pause/resume all analysis (`IsPaused` atomic flag)
-- [x] **Chat endpoint** — `/api/chat` with analysis context passed to AI
+- [x] **Фетчер SPA** — фолбеки для JS-сайтов: ld+json → OG meta-теги (`services/fetcher.go`)
+- [x] **Rate limit время** — читает `Retry-After` / `X-RateLimit-Reset-Requests` из 429, логирует сколько ждать
+- [x] **GET /api/limits** — эндпоинт с текущими rate limit данными по провайдерам
+- [x] **Очередь запросов** — семафор (макс. 1 одновременный AI-запрос), индикация позиции в очереди
+- [x] **Redis-кэширование** — 24 часа, ключ = SHA-256 хэш контента
+- [x] **Сохранение в PostgreSQL** — все результаты с URL и временной меткой
+- [x] **Перекрёстная верификация** — мультиязычный поиск Serper для проверки ключевых утверждений
+- [x] **Пауза анализа** — администратор может приостанавливать/возобновлять обработку (`IsPaused` atomic)
+- [x] **Эндпоинт /api/chat** — чат с AI с передачей контекста анализа
 
-### Admin Panel
+### Админ-панель
 
-- [x] **Full redesign** — IBM Plex Mono + Bebas Neue, grid background, CRT scanlines, amber theme
-- [x] **Live log stream** — WebSocket log feed in real time (`/api/admin/logs`)
-- [x] **API Tester** — test API requests directly from admin panel
-- [x] **Docker manager** — list containers, start/stop/restart, WebSocket log stream per container (`admin/docker.html`)
-- [x] **Rate limits display** — visualize `/api/limits` data with progress bars
+- [x] **Полный редизайн** — IBM Plex Mono + Bebas Neue, сетчатый фон, CRT-эффект scanlines, amber-тема
+- [x] **Живые логи** — WebSocket-поток логов в реальном времени (`/api/admin/logs`)
+- [x] **API-тестер** — тестирование API-запросов прямо из панели
+- [x] **Docker-менеджер** — список контейнеров, запуск/остановка/перезапуск, WS-поток логов (`admin/docker.html`)
+- [x] **Отображение rate limits** — визуализация данных `/api/limits` с прогресс-барами
 
-### Chrome Extension
+### Chrome-расширение
 
-- [x] **userId + history** — UUID per user, stores 30 entries for 7 days, view with 🕐 button
-- [x] **Auto-scan without animation** — silently scans on popup open, animation only on manual click
-- [x] **Cache** — same page → instant result from cache, 🔄 button for force rescan
-- [x] **Floating notification** — result shown as a floating div in bottom-right corner of page
-- [x] **Premium redesign** — glassmorphism, IBM Plex Mono, vibrant colors, micro-animations
-- [x] **Health check** — backend status indicator, disables button if offline
+- [x] **userId + история** — UUID на пользователя, хранит 30 записей 7 дней, кнопка 🕐
+- [x] **Авто-скан без анимации** — тихое сканирование при открытии popup, анимация только при ручном нажатии
+- [x] **Кэш** — та же страница → мгновенный результат из кэша, 🔄 для принудительного рескана
+- [x] **Уведомление в углу** — floating div в правом нижнем углу страницы после анализа
+- [x] **Премиальный редизайн** — glassmorphism, IBM Plex Mono, яркие цвета, микро-анимации
+- [x] **Проверка доступности** — индикатор статуса бэкенда, кнопка отключается если офлайн
 
-### Telegram Bot
+### Telegram-бот
 
-- [x] **Separate Go module** — `telegram-bot/` directory with `main.go`, `analyzer.go`, `formatter.go`
-- [x] **SSE client** — streams `/api/analyze/stream`, edits Telegram message in progress
-- [x] **Message formatting** — score + progress bar + verdict + manipulations + logical issues
-- [x] **Multi-user support** — each chat has independent analysis context and cancel
-- [x] **/cancel command** — stop current analysis per chat
-- [x] **Webhook mode** — auto-selected when `WEBHOOK_URL` is set in `.env`
-- [x] **Inline keyboard** — 🔗 Share and 🔄 Re-check buttons on result
-- [x] **Forwarded messages** — detects source channel/user, shows as label in result
-- [x] **URL-only mode** — plain text shows polite "in development" message
-- [x] **Gemini removed** — removed video analysis dependency, simplified to URL-only
+- [x] **Отдельный Go-модуль** — папка `telegram-bot/` с `main.go`, `analyzer.go`, `formatter.go`
+- [x] **SSE-клиент** — стримит `/api/analyze/stream`, обновляет сообщение в процессе анализа
+- [x] **Форматирование** — балл + прогресс-бар + вердикт + манипуляции + логические ошибки
+- [x] **Мультипользовательский режим** — каждый чат имеет независимый контекст и отмену
+- [x] **Команда /cancel** — остановка текущего анализа для конкретного чата
+- [x] **Webhook-режим** — автоматически выбирается при наличии `WEBHOOK_URL` в `.env`
+- [x] **Inline-кнопки** — 🔗 Поделиться и 🔄 Перепроверить после результата
+- [x] **Пересланные сообщения** — определяет канал/пользователя-источник, показывает метку
+- [x] **Только URL-режим** — обычный текст вызывает вежливый ответ «функция в разработке»
+- [x] **Удалён Gemini** — убрана зависимость от видеоанализа, упрощено до URL-only
 
-### Infrastructure
+### Инфраструктура
 
-- [x] **Single .env** — bot reads `../.env` from project root, shared `.env.example`
-- [x] **Docker Compose** — nginx (SSE buffering fixed, timeouts), telegram-bot service, `env_file`, postgres + backend healthchecks
-- [x] **nginx share route** — added `location /s/` → backend (was missing, causing 502)
-- [x] **Share page HTML** — premium `admin/share.html` matching admin design, animated score counter, fetches from DB
-- [x] **Prompt improvements** — anti-authority bias rule (site name ≠ credibility score), multilingual analysis support
-
-### AI Prompt System
-
-- [x] **Strict scoring rules** — starts at 5/10, deductions for each issue, 8+ only for peer-reviewed
-- [x] **Anti-inflation examples** — calibration examples of wrong vs correct scoring
-- [x] **Step-by-step breakdown** — AI must justify every +/- with quote from text
-- [x] **Score calibration** — `0-2` propaganda, `3-4` mostly false, `5-6` mixed, `7` credible, `8-9` high credibility, `10` peer-reviewed only
+- [x] **Единый .env** — бот читает `../.env` из корня проекта, общий `.env.example`
+- [x] **Docker Compose** — nginx (SSE буферизация, таймауты), сервис telegram-bot, `env_file`, healthcheck для postgres и backend
+- [x] **Nginx-роут для шаринга** — добавлен `location /s/` → backend (отсутствовал, вызывал 502)
+- [x] **HTML-страница шаринга** — премиальный `admin/share.html` в стиле админки, анимированный счётчик, данные из БД
+- [x] **Улучшение промпта** — правило анти-авторитета (название сайта ≠ оценка достоверности), поддержка многоязычного анализа
