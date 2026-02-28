@@ -12,10 +12,7 @@ import (
 	"time"
 )
 
-const (
-	geminiBase   = "https://generativelanguage.googleapis.com/v1beta" // Files API
-	geminiV1Base = "https://generativelanguage.googleapis.com/v1"     // generateContent (stable models)
-)
+const geminiBase = "https://generativelanguage.googleapis.com/v1beta"
 
 // GeminiFile represents the uploaded file metadata from Gemini Files API.
 type GeminiFile struct {
@@ -138,11 +135,12 @@ func WaitForGeminiFile(ctx context.Context, apiKey, fileName string) error {
 	return fmt.Errorf("timeout waiting for Gemini file to become active")
 }
 
-// geminiModels is the ordered list of (model, apiBase) pairs to try on quota errors.
-var geminiModels = []struct{ name, base string }{
-	{"gemini-1.5-flash", geminiV1Base},
-	{"gemini-1.5-flash-8b", geminiV1Base},
-	{"gemini-2.0-flash-lite", geminiBase},
+// geminiModels is the ordered list of models to try on quota/404 errors.
+// All use v1beta because file_data (uploaded file reference) is only supported there.
+var geminiModels = []string{
+	"gemini-2.0-flash-lite", // free tier, lightweight
+	"gemini-1.5-flash-8b",   // older free tier
+	"gemini-1.5-flash",      // fallback
 }
 
 // AnalyzeVideoWithGemini sends the uploaded video to Gemini Flash for transcription
@@ -184,8 +182,8 @@ Describe what is visually shown: setting, people present, text on screen, graphi
 	}
 
 	var lastErr error
-	for _, m := range geminiModels {
-		result, err := doGenerateContent(ctx, apiKey, m.base, m.name, bodyBytes)
+	for _, model := range geminiModels {
+		result, err := doGenerateContent(ctx, apiKey, model, bodyBytes)
 		if err == nil {
 			return result, nil
 		}
@@ -199,8 +197,8 @@ Describe what is visually shown: setting, people present, text on screen, graphi
 }
 
 // doGenerateContent calls generateContent for one model. On 429 waits up to 90s then retries once.
-func doGenerateContent(ctx context.Context, apiKey, apiBase, model string, bodyBytes []byte) (string, error) {
-	url := apiBase + "/models/" + model + ":generateContent?key=" + apiKey
+func doGenerateContent(ctx context.Context, apiKey, model string, bodyBytes []byte) (string, error) {
+	url := geminiBase + "/models/" + model + ":generateContent?key=" + apiKey
 
 	for attempt := 0; attempt < 2; attempt++ {
 		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(bodyBytes))
