@@ -81,6 +81,17 @@ func (h *AnalyzerHandler) Analyze(w http.ResponseWriter, r *http.Request) {
 
 // AnalyzeStream — SSE endpoint, показывает прогресс в реальном времени
 func (h *AnalyzerHandler) AnalyzeStream(w http.ResponseWriter, r *http.Request) {
+	// CORS заголовки
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Обработка preflight запроса
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// Проверяем, не приостановлен ли анализатор
 	if h.service != nil && h.service.IsPaused.Load() {
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -95,14 +106,17 @@ func (h *AnalyzerHandler) AnalyzeStream(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req models.AnalysisRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
+	if r.Method == http.MethodPost {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
+			return
+		}
+	} else if r.Method == http.MethodGet {
+		req.URL = r.URL.Query().Get("url")
+		req.Text = r.URL.Query().Get("text")
+	} else {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
 
