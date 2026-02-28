@@ -254,7 +254,11 @@ func extractJSON(text string) string {
 			start += 7 // длина "```json"
 			end := strings.Index(text[start:], "```")
 			if end != -1 {
-				return strings.TrimSpace(text[start : start+end])
+				candidate := strings.TrimSpace(text[start : start+end])
+				if repaired := repairJSON(candidate); repaired != "" {
+					return repaired
+				}
+				return candidate
 			}
 		}
 	}
@@ -277,11 +281,176 @@ func extractJSON(text string) string {
 			return jsonStr
 		}
 
-		log.Printf("[PARSER] ⚠ JSON невалидный, возвращаю как есть")
+		// Пробуем починить JSON
+		if repaired := repairJSON(jsonStr); repaired != "" {
+			log.Printf("[PARSER] ✓ JSON успешно восстановлен")
+			return repaired
+		}
+
+		log.Printf("[PARSER] ⚠ JSON невалидный, пробую агрессивное восстановление")
+
+		// Агрессивное восстановление: пробуем обрезать до последнего валидного блока
+		if aggressive := aggressiveRepairJSON(jsonStr); aggressive != "" {
+			log.Printf("[PARSER] ✓ JSON восстановлен агрессивным методом")
+			return aggressive
+		}
+
 		return jsonStr
 	}
 
 	return text
+}
+
+// repairJSON пытается исправить типичные ошибки AI-сгенерированного JSON
+func repairJSON(jsonStr string) string {
+	fixed := jsonStr
+
+	// 1. Убираем trailing commas перед ] и }
+	reTrailingComma := regexp.MustCompile(`,\s*([}\]])`)
+	fixed = reTrailingComma.ReplaceAllString(fixed, "$1")
+
+	// 2. Убираем управляющие символы внутри строк (кроме \n \t \r)
+	reControlChars := regexp.MustCompile(`[\x00-\x08\x0b\x0c\x0e-\x1f]`)
+	fixed = reControlChars.ReplaceAllString(fixed, "")
+
+	// 3. Исправляем одинарные кавычки на двойные (AI иногда путает)
+	// Осторожно: только для ключей, не внутри строковых значений
+	reSingleQuoteKeys := regexp.MustCompile(`'([a-z_]+)'\s*:`)
+	fixed = reSingleQuoteKeys.ReplaceAllString(fixed, `"$1":`)
+
+	// 4. Закрываем незакрытые скобки
+	openBraces := strings.Count(fixed, "{") - strings.Count(fixed, "}")
+	openBrackets := strings.Count(fixed, "[") - strings.Count(fixed, "]")
+
+	// Убираем trailing запятую перед добавлением закрывающих скобок
+	fixed = strings.TrimRight(fixed, " \t\n\r")
+	fixed = strings.TrimRight(fixed, ",")
+
+	for i := 0; i < openBrackets; i++ {
+		fixed += "]"
+	}
+	for i := 0; i < openBraces; i++ {
+		fixed += "}"
+	}
+
+	// 5. Проверяем результат
+	var testMap map[string]interface{}
+	if err := json.Unmarshal([]byte(fixed), &testMap); err == nil {
+		return fixed
+	}
+
+	return ""
+}
+
+// aggressiveRepairJSON — крайний метод: пытается построить минимальный валидный JSON
+func aggressiveRepairJSON(jsonStr string) string {
+	// Стратегия: находим все key-value пары верхнего уровня и собираем заново
+	// Ищем основные поля которые нам нужны
+
+	extractField := func(key string) string {
+		pattern := regexp.MustCompile(`"` + key + `"\s*:\s*`)
+		loc := pattern.FindStringIndex(jsonStr)
+		if loc == nil {
+			return ""
+		}
+		rest := jsonStr[loc[1]:]
+		if len(rest) == 0 {
+			return ""
+		}
+
+		switch rest[0] {
+		case '"':
+			// строковое значение — находим закрывающую кавычку
+			end := 1
+			for end < len(rest) {
+				if rest[end] == '"' && rest[end-1] != '\\' {
+					return rest[:end+1]
+				}
+				end++
+			}
+			return rest[:end] + `"`
+		case '[':
+			// массив — считаем скобки
+			depth := 0
+			for i, c := range rest {
+				if c == '[' {
+					depth++
+				} else if c == ']' {
+					depth--
+					if depth == 0 {
+						return rest[:i+1]
+					}
+				}
+			}
+			// Незакрытый массив — обрезаем и закрываем
+			lastComma := strings.LastIndex(rest, ",")
+			if lastComma > 0 {
+				candidate := strings.TrimRight(rest[:lastComma], " \t\n\r") + "]"
+				var test []interface{}
+				if json.Unmarshal([]byte(candidate), &test) == nil {
+					return candidate
+				}
+			}
+			return "[]"
+		case '{':
+			// объект — считаем скобки
+			depth := 0
+			for i, c := range rest {
+				if c == '{' {
+					depth++
+				} else if c == '}' {
+					depth--
+					if depth == 0 {
+						return rest[:i+1]
+					}
+				}
+			}
+			return "{}"
+		default:
+			// число или boolean
+			reValue := regexp.MustCompile(`^[\w.]+`)
+			m := reValue.FindString(rest)
+			if m != "" {
+				return m
+			}
+		}
+		return ""
+	}
+
+	// Собираем минимальный валидный JSON с основными полями
+	fields := []string{
+		"summary", "credibility_score", "is_fake", "reasoning",
+		"manipulations", "logical_issues",
+	}
+
+	parts := []string{}
+	for _, field := range fields {
+		val := extractField(field)
+		if val != "" {
+			parts = append(parts, fmt.Sprintf(`"%s": %s`, field, val))
+		}
+	}
+
+	// Пробуем добавить вложенные объекты
+	factCheckVal := extractField("fact_check")
+	if factCheckVal != "" {
+		parts = append(parts, fmt.Sprintf(`"fact_check": %s`, factCheckVal))
+	} else {
+		parts = append(parts, `"fact_check": {"verifiable_facts": [], "opinions_as_facts": [], "missing_evidence": [], "found_evidence": []}`)
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	result := "{" + strings.Join(parts, ", ") + "}"
+
+	var testMap map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &testMap); err == nil {
+		return result
+	}
+
+	return ""
 }
 
 // verifyAndFindTruth - проверяет статью и ищет настоящую информацию
