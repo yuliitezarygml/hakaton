@@ -480,6 +480,10 @@ func handleVideo(msg *tgbotapi.Message) {
 	}
 
 	const maxBytes = 50 * 1024 * 1024
+	if fileSize == 0 {
+		send(chatID, "❌ Не удалось определить размер видео. Пожалуйста, отправьте видео до 50 МБ.")
+		return
+	}
 	if fileSize > maxBytes {
 		send(chatID, fmt.Sprintf("❌ Видео слишком большое (%d МБ). Максимум — 50 МБ.", fileSize/1024/1024))
 		return
@@ -498,17 +502,11 @@ func handleVideo(msg *tgbotapi.Message) {
 			cancel()
 			unregisterAnalysis(chatID)
 		}()
-		runVideoAnalysis(ctx, chatID, initMsg.MessageID, fileID, mimeType)
+		runVideoAnalysis(ctx, chatID, initMsg.MessageID, fileID, mimeType, geminiKey)
 	}()
 }
 
-func runVideoAnalysis(ctx context.Context, chatID int64, msgID int, fileID, mimeType string) {
-	geminiKey := os.Getenv("GEMINI_API_KEY")
-	if geminiKey == "" {
-		edit(chatID, msgID, "❌ Видеоанализ недоступен: GEMINI_API_KEY не настроен.")
-		return
-	}
-
+func runVideoAnalysis(ctx context.Context, chatID int64, msgID int, fileID, mimeType, geminiKey string) {
 	edit(chatID, msgID, "🎬 <b>Видео получено</b>\n\n<code>Скачиваю файл...</code>")
 
 	fileURL, err := bot.GetFileDirectURL(fileID)

@@ -126,8 +126,9 @@ func WaitForGeminiFile(ctx context.Context, apiKey, fileName string) error {
 			return fmt.Errorf("Gemini file processing failed")
 		}
 
-		time.Sleep(2 * time.Second)
-		if ctx.Err() != nil {
+		select {
+		case <-time.After(2 * time.Second):
+		case <-ctx.Done():
 			return ctx.Err()
 		}
 	}
@@ -214,8 +215,10 @@ Describe what is visually shown: setting, people present, text on screen, graphi
 
 // DeleteGeminiFile cleans up the uploaded file. Errors silently ignored (best-effort).
 func DeleteGeminiFile(apiKey, fileName string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	url := geminiBase + "/" + fileName + "?key=" + apiKey
-	req, err := http.NewRequest("DELETE", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
 	if err != nil {
 		return
 	}
