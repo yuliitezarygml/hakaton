@@ -135,8 +135,14 @@ func WaitForGeminiFile(ctx context.Context, apiKey, fileName string) error {
 	return fmt.Errorf("timeout waiting for Gemini file to become active")
 }
 
+// geminiModels is the ordered list of models to try. Falls back on 429/quota errors.
+var geminiModels = []string{
+	"gemini-1.5-flash",
+	"gemini-1.5-flash-8b",
+}
+
 // AnalyzeVideoWithGemini sends the uploaded video to Gemini Flash for transcription
-// and visual description. Returns combined text.
+// and visual description. Tries models in order, retrying once on 429.
 func AnalyzeVideoWithGemini(ctx context.Context, apiKey, fileURI, mimeType string) (string, error) {
 	prompt := `Analyze this video carefully and return exactly two sections:
 
@@ -173,44 +179,114 @@ Describe what is visually shown: setting, people present, text on screen, graphi
 		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
-	url := geminiBase + "/models/gemini-2.0-flash:generateContent?key=" + apiKey
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return "", fmt.Errorf("build request: %w", err)
+	var lastErr error
+	for _, model := range geminiModels {
+		result, err := doGenerateContent(ctx, apiKey, model, bodyBytes)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+		// Only fall through to next model on quota/rate-limit errors
+		if !isQuotaError(err) {
+			return "", err
+		}
 	}
-	req.Header.Set("Content-Type", "application/json")
+	return "", lastErr
+}
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("generateContent request: %w", err)
-	}
-	defer resp.Body.Close()
+// doGenerateContent calls generateContent for one model. On 429 waits up to 90s then retries once.
+func doGenerateContent(ctx context.Context, apiKey, model string, bodyBytes []byte) (string, error) {
+	url := geminiBase + "/models/" + model + ":generateContent?key=" + apiKey
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("read response body: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Gemini generateContent HTTP %d: %s", resp.StatusCode, string(respBody))
-	}
+	for attempt := 0; attempt < 2; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return "", fmt.Errorf("build request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
 
-	var result struct {
-		Candidates []struct {
-			Content struct {
-				Parts []struct {
-					Text string `json:"text"`
-				} `json:"parts"`
-			} `json:"content"`
-		} `json:"candidates"`
-	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return "", fmt.Errorf("parse response: %w", err)
-	}
-	if len(result.Candidates) == 0 || len(result.Candidates[0].Content.Parts) == 0 {
-		return "", fmt.Errorf("empty response from Gemini")
-	}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return "", fmt.Errorf("generateContent request: %w", err)
+		}
+		respBody, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return "", fmt.Errorf("read response body: %w", err)
+		}
 
-	return strings.TrimSpace(result.Candidates[0].Content.Parts[0].Text), nil
+		if resp.StatusCode == http.StatusOK {
+			var result struct {
+				Candidates []struct {
+					Content struct {
+						Parts []struct {
+							Text string `json:"text"`
+						} `json:"parts"`
+					} `json:"content"`
+				} `json:"candidates"`
+			}
+			if err := json.Unmarshal(respBody, &result); err != nil {
+				return "", fmt.Errorf("parse response: %w", err)
+			}
+			if len(result.Candidates) == 0 || len(result.Candidates[0].Content.Parts) == 0 {
+				return "", fmt.Errorf("empty response from Gemini")
+			}
+			return strings.TrimSpace(result.Candidates[0].Content.Parts[0].Text), nil
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests && attempt == 0 {
+			// Parse retryDelay from response, cap at 90s
+			delay := parseRetryDelay(respBody)
+			if delay > 90*time.Second {
+				return "", fmt.Errorf("Gemini quota exceeded for model %s (retry in %s)", model, delay.Round(time.Second))
+			}
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return "", ctx.Err()
+			}
+			continue
+		}
+
+		return "", fmt.Errorf("Gemini generateContent HTTP %d (model %s): %s", resp.StatusCode, model, string(respBody))
+	}
+	return "", fmt.Errorf("Gemini quota exceeded for model %s", model)
+}
+
+// parseRetryDelay extracts the retryDelay duration from a Gemini 429 response body.
+// Falls back to 60s if parsing fails.
+func parseRetryDelay(body []byte) time.Duration {
+	var errResp struct {
+		Error struct {
+			Details []struct {
+				RetryDelay string `json:"retryDelay"`
+			} `json:"details"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &errResp) == nil {
+		for _, d := range errResp.Error.Details {
+			if d.RetryDelay != "" {
+				// Format: "56.131542619s" or "56s"
+				if dur, err := time.ParseDuration(d.RetryDelay); err == nil {
+					return dur
+				}
+				// Try stripping fractional seconds: "56.13s" → try as-is first, then truncate
+				if dur, err := time.ParseDuration(strings.Split(d.RetryDelay, ".")[0] + "s"); err == nil {
+					return dur
+				}
+			}
+		}
+	}
+	return 60 * time.Second
+}
+
+// isQuotaError returns true if err indicates a quota/rate-limit problem.
+func isQuotaError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "HTTP 429") || strings.Contains(s, "quota exceeded")
 }
 
 // DeleteGeminiFile cleans up the uploaded file. Errors silently ignored (best-effort).
