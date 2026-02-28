@@ -12,7 +12,10 @@ import (
 	"time"
 )
 
-const geminiBase = "https://generativelanguage.googleapis.com/v1beta"
+const (
+	geminiBase   = "https://generativelanguage.googleapis.com/v1beta" // Files API
+	geminiV1Base = "https://generativelanguage.googleapis.com/v1"     // generateContent (stable models)
+)
 
 // GeminiFile represents the uploaded file metadata from Gemini Files API.
 type GeminiFile struct {
@@ -135,10 +138,11 @@ func WaitForGeminiFile(ctx context.Context, apiKey, fileName string) error {
 	return fmt.Errorf("timeout waiting for Gemini file to become active")
 }
 
-// geminiModels is the ordered list of models to try. Falls back on 429/quota errors.
-var geminiModels = []string{
-	"gemini-1.5-flash",
-	"gemini-1.5-flash-8b",
+// geminiModels is the ordered list of (model, apiBase) pairs to try on quota errors.
+var geminiModels = []struct{ name, base string }{
+	{"gemini-1.5-flash", geminiV1Base},
+	{"gemini-1.5-flash-8b", geminiV1Base},
+	{"gemini-2.0-flash-lite", geminiBase},
 }
 
 // AnalyzeVideoWithGemini sends the uploaded video to Gemini Flash for transcription
@@ -180,13 +184,13 @@ Describe what is visually shown: setting, people present, text on screen, graphi
 	}
 
 	var lastErr error
-	for _, model := range geminiModels {
-		result, err := doGenerateContent(ctx, apiKey, model, bodyBytes)
+	for _, m := range geminiModels {
+		result, err := doGenerateContent(ctx, apiKey, m.base, m.name, bodyBytes)
 		if err == nil {
 			return result, nil
 		}
 		lastErr = err
-		// Only fall through to next model on quota/rate-limit errors
+		// Only fall through to next model on quota/rate-limit/not-found errors
 		if !isQuotaError(err) {
 			return "", err
 		}
@@ -195,8 +199,8 @@ Describe what is visually shown: setting, people present, text on screen, graphi
 }
 
 // doGenerateContent calls generateContent for one model. On 429 waits up to 90s then retries once.
-func doGenerateContent(ctx context.Context, apiKey, model string, bodyBytes []byte) (string, error) {
-	url := geminiBase + "/models/" + model + ":generateContent?key=" + apiKey
+func doGenerateContent(ctx context.Context, apiKey, apiBase, model string, bodyBytes []byte) (string, error) {
+	url := apiBase + "/models/" + model + ":generateContent?key=" + apiKey
 
 	for attempt := 0; attempt < 2; attempt++ {
 		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(bodyBytes))
@@ -280,13 +284,16 @@ func parseRetryDelay(body []byte) time.Duration {
 	return 60 * time.Second
 }
 
-// isQuotaError returns true if err indicates a quota/rate-limit problem.
+// isQuotaError returns true if err indicates a quota, rate-limit, or model-not-found problem
+// — all cases where trying the next model makes sense.
 func isQuotaError(err error) bool {
 	if err == nil {
 		return false
 	}
 	s := err.Error()
-	return strings.Contains(s, "HTTP 429") || strings.Contains(s, "quota exceeded")
+	return strings.Contains(s, "HTTP 429") ||
+		strings.Contains(s, "HTTP 404") ||
+		strings.Contains(s, "quota exceeded")
 }
 
 // DeleteGeminiFile cleans up the uploaded file. Errors silently ignored (best-effort).
